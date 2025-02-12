@@ -1,33 +1,26 @@
 // src/App.jsx
-import React, { useEffect } from "react";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Home from "./pages/home";
+import Login from "./pages/Login";
+import Register from "./pages/Register";
+import Dashboard from "./pages/Dashboard";
+import Tasks from "./pages/Tasks";
+import History from "./pages/History";
+
+
 import "./App.css";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
-import { firestore } from "./firebase-config";
 
-function App() {
-  useEffect(() => {
-    const addTestDocument = async () => {
-      try {
-        const docRef = await addDoc(collection(firestore, "test"), {
-          name: "Teste Firebase",
-          email: "teste@exemplo.com",
-          timestamp: serverTimestamp(),
-        });
-        console.log("Documento inserido com sucesso! ID:", docRef.id);
-      } catch (error) {
-        console.error("Erro ao inserir documento:", error);
-      }
-    };
-
-    addTestDocument();
-  }, []);
-
+export default function App() {
   return (
-    <div className="App">
-      <h1>Teste de Integração com Firebase</h1>
-      <p>Verifique o console do navegador e o Firestore no Firebase Console.</p>
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/dashboard" element={<Dashboard />} />
+        <Route path="/tasks" element={<Tasks />} />
+        <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/" element={<Home />} />
+      </Routes>
+    </Router>
   );
 }
-
-export default App;
