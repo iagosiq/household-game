@@ -67,7 +67,7 @@ export default function Navbar() {
             <Button color="inherit" component={Link} to="/history">
               Histórico
             </Button>
-            <Button color="inherit" onClick={handleLogout}>
+            <Button color="inherit" onClick={handleLogout} component={Link} to="/login">
               Sair
             </Button>
           </Box>
