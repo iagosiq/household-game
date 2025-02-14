@@ -124,3 +124,7 @@ export default function Profile() {
     </Container>
   );
 }
+
+
+src/pages/Profile.jsx
+
