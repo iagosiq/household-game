@@ -1,3 +1,5 @@
+
+
 // src/pages/Tasks.jsx
 import React, { useEffect, useState } from "react";
 import {
@@ -26,12 +28,19 @@ export default function Tasks() {
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState("");
   const [periodicity, setPeriodicity] = useState("");
-  const [owner, setOwner] = useState("global"); // Valor padrão
+  const [owner, setOwner] = useState("global");
   const [editId, setEditId] = useState(null);
+  // Inicializa a lista com "global" para garantir que sempre haja uma opção
   const [subUsers, setSubUsers] = useState(["global"]);
   const auth = getAuth();
+  
+  // Recupera o sub-usuário ativo do localStorage (se existir)
+  const activeSubUser = localStorage.getItem("activeSubUser") || "global";
 
-  // Função para buscar as tarefas no Firestore
+  // Filtra as tarefas para exibir somente as que pertencem ao sub-usuário ativo
+  const filteredTasks = tasks.filter((task) => task.owner === activeSubUser);
+
+  // Busca as tarefas no Firestore
   const fetchTasks = async () => {
     try {
       const querySnapshot = await getDocs(collection(firestore, "tasks"));
@@ -45,35 +54,42 @@ export default function Tasks() {
     }
   };
 
-  // Função para buscar os sub-perfis do usuário logado, incluindo o usuário principal
+  // Busca os perfis do usuário no Firestore e constrói a lista de sub-usuários
   const fetchSubUsers = async (uid) => {
     try {
       const userDocRef = doc(firestore, "users", uid);
       const userDocSnap = await getDoc(userDocRef);
 
+      let finalList = [];
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
         console.log("Dados do usuário:", userData);
 
-        // Pega os sub-usuários salvos; se não for array, usa array vazio.
+        // Pega os sub-usuários salvos (ou [] se não existir)
         const userSubProfiles = Array.isArray(userData.subUsers) ? userData.subUsers : [];
-        // Obtém o nome principal (displayName ou email)
-        const mainUserName = auth.currentUser.displayName || auth.currentUser.email;
-        // Garante que o nome principal esteja na lista (sem duplicar "global")
-        let finalList = ["global"];
-        if (mainUserName && !userSubProfiles.includes(mainUserName)) {
-          finalList.push(mainUserName);
-        } else if (mainUserName && userSubProfiles.includes(mainUserName) === false) {
+        // Obtém o nome principal: displayName ou email (se ausente, usa "Sem Nome")
+        const mainUserName = auth.currentUser.displayName || auth.currentUser.email || "Sem Nome";
+        // Constrói a lista final: "global", seguido do usuário principal e depois os demais perfis (evitando duplicatas)
+        finalList = ["global"];
+        if (mainUserName && !finalList.includes(mainUserName)) {
           finalList.push(mainUserName);
         }
-        // Acrescenta os sub-usuários
-        finalList = [...finalList, ...userSubProfiles];
-        setSubUsers(finalList);
+        finalList = [...finalList, ...userSubProfiles.filter(profile => profile && profile !== mainUserName)];
       } else {
-        console.warn("Usuário não encontrado no Firestore.");
+        finalList = ["global"];
+      }
+      // Se o array final estiver vazio, garante que contenha "global"
+      if (finalList.length === 0) {
+        finalList = ["global"];
+      }
+      setSubUsers(finalList);
+      // Se o valor atual de owner não estiver entre as opções, define-o para o primeiro item
+      if (!finalList.includes(owner)) {
+        setOwner(finalList[0]);
       }
     } catch (error) {
       console.error("Erro ao buscar sub-usuários:", error);
+      setSubUsers(["global"]);
     }
   };
 
@@ -82,8 +98,11 @@ export default function Tasks() {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
         await fetchSubUsers(user.uid);
+        // Define o owner padrão para "global" (ou ajuste conforme sua lógica)
+        setOwner("global");
       } else {
-        setSubUsers(["global"]); // Resetar se não houver usuário autenticado
+        setSubUsers(["global"]);
+        setOwner("global");
       }
     });
     return () => unsubscribe();
@@ -110,7 +129,6 @@ export default function Tasks() {
           createdAt: new Date(),
         });
       }
-      // Limpar os campos e resetar o seletor para "global"
       setDescription("");
       setPoints("");
       setPeriodicity("");
@@ -143,11 +161,7 @@ export default function Tasks() {
       <Typography variant="h4" gutterBottom>
         Gerenciar Tarefas
       </Typography>
-      <Box
-        component="form"
-        onSubmit={handleSubmit}
-        sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4 }}
-      >
+      <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4 }}>
         <TextField
           label="Descrição"
           variant="outlined"
@@ -182,7 +196,7 @@ export default function Tasks() {
           >
             {subUsers.map((userOption, index) => (
               <MenuItem key={index} value={userOption}>
-                {userOption}
+                {userOption || "Sem Nome"}
               </MenuItem>
             ))}
           </Select>
@@ -193,10 +207,10 @@ export default function Tasks() {
       </Box>
 
       <Typography variant="h5" gutterBottom>
-        Lista de Tarefas
+        Lista de Tarefas (Filtradas para: {activeSubUser})
       </Typography>
       <List>
-        {tasks.map((task) => (
+        {filteredTasks.map((task) => (
           <ListItem key={task.id} sx={{ display: "flex", justifyContent: "space-between" }}>
             <ListItemText
               primary={task.description}

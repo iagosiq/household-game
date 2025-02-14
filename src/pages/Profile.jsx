@@ -1,15 +1,14 @@
-// // src/pages/Profile.jsx
+
 // import React, { useState, useEffect } from "react";
 // import { Container, Box, TextField, Button, Typography, Alert } from "@mui/material";
 // import { getAuth, updateEmail, updatePassword, updateProfile } from "firebase/auth";
 // import { doc, getDoc, updateDoc } from "firebase/firestore";
 // import { firestore } from "../firebase/firebase-config";
+// import SubUsersManager from "../components/SubUsersManager";
 
 // export default function Profile() {
 //   const auth = getAuth();
 //   const user = auth.currentUser;
-
-//   // Estados para os campos do perfil
 //   const [name, setName] = useState("");
 //   const [email, setEmail] = useState("");
 //   const [birthdate, setBirthdate] = useState("");
@@ -17,19 +16,18 @@
 //   const [error, setError] = useState("");
 //   const [success, setSuccess] = useState("");
 
+//   // Carrega os dados do usuário (do Firestore ou Auth) ao montar a página
 //   useEffect(() => {
 //     const fetchUserData = async () => {
 //       if (user) {
 //         try {
-//           // Tenta buscar os dados adicionais do usuário no Firestore
 //           const userDoc = await getDoc(doc(firestore, "users", user.uid));
 //           if (userDoc.exists()) {
 //             const data = userDoc.data();
 //             setName(data.name || user.displayName || "");
 //             setEmail(data.email || user.email || "");
-//             setBirthdate(data.birthdate || ""); // Supondo que seja armazenado no formato YYYY-MM-DD
+//             setBirthdate(data.birthdate || ""); // Formato YYYY-MM-DD
 //           } else {
-//             // Se não houver documento no Firestore, usa os dados do Auth
 //             setName(user.displayName || "");
 //             setEmail(user.email || "");
 //           }
@@ -38,7 +36,6 @@
 //         }
 //       }
 //     };
-
 //     fetchUserData();
 //   }, [user]);
 
@@ -47,19 +44,15 @@
 //     setError("");
 //     setSuccess("");
 //     try {
-//       // Se o email foi alterado, atualiza no Auth
 //       if (email !== user.email) {
 //         await updateEmail(user, email);
 //       }
-//       // Se a senha foi preenchida, atualiza a senha
 //       if (password) {
 //         await updatePassword(user, password);
 //       }
-//       // Atualiza o nome no Auth (se houver alteração)
 //       if (name !== user.displayName) {
 //         await updateProfile(user, { displayName: name });
 //       }
-//       // Atualiza os dados adicionais no Firestore (nome, email e data de nascimento)
 //       await updateDoc(doc(firestore, "users", user.uid), {
 //         name,
 //         email,
@@ -109,9 +102,7 @@
 //           label="Data de Nascimento"
 //           variant="outlined"
 //           type="date"
-//           InputLabelProps={{
-//             shrink: true,
-//           }}
+//           InputLabelProps={{ shrink: true }}
 //           value={birthdate}
 //           onChange={(e) => setBirthdate(e.target.value)}
 //           fullWidth
@@ -121,17 +112,15 @@
 //           Atualizar Perfil
 //         </Button>
 //       </Box>
+//       {/* Componente para gerenciar sub-usuários */}
+//       {user && <SubUsersManager userId={user.uid} />}
 //     </Container>
 //   );
 // }
 
 
-// src/pages/Profile.jsx
 
 // src/pages/Profile.jsx
-// Esta página permite ao usuário atualizar seus dados pessoais (nome, email, senha, data de nascimento)
-// e gerenciar os sub-usuários usando o componente SubUsersManager.
-
 import React, { useState, useEffect } from "react";
 import { Container, Box, TextField, Button, Typography, Alert } from "@mui/material";
 import { getAuth, updateEmail, updatePassword, updateProfile } from "firebase/auth";
@@ -149,7 +138,6 @@ export default function Profile() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  // Carrega os dados do usuário (do Firestore ou Auth) ao montar a página
   useEffect(() => {
     const fetchUserData = async () => {
       if (user) {
@@ -159,7 +147,11 @@ export default function Profile() {
             const data = userDoc.data();
             setName(data.name || user.displayName || "");
             setEmail(data.email || user.email || "");
-            setBirthdate(data.birthdate || ""); // Formato YYYY-MM-DD
+            // Verifica se o valor de data.birthdate é uma data válida
+            const fetchedBirthdate = data.birthdate;
+            // Se Date.parse não conseguir converter, retorna NaN
+            const validBirthdate = !isNaN(Date.parse(fetchedBirthdate)) ? fetchedBirthdate : "";
+            setBirthdate(validBirthdate);
           } else {
             setName(user.displayName || "");
             setEmail(user.email || "");
@@ -169,6 +161,7 @@ export default function Profile() {
         }
       }
     };
+
     fetchUserData();
   }, [user]);
 
@@ -245,7 +238,6 @@ export default function Profile() {
           Atualizar Perfil
         </Button>
       </Box>
-      {/* Componente para gerenciar sub-usuários */}
       {user && <SubUsersManager userId={user.uid} />}
     </Container>
   );
