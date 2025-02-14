@@ -14,14 +14,17 @@ export default function UserSelection() {
   const [selectedSubUser, setSelectedSubUser] = useState(null);
 
   useEffect(() => {
-    // Busca os sub-usuários do documento do usuário no Firestore
     const fetchSubUsers = async () => {
       if (user) {
         try {
           const userDoc = await getDoc(doc(firestore, "users", user.uid));
           if (userDoc.exists()) {
-            // Assume que os sub-usuários estão armazenados em um array chamado 'subUsers'
-            setSubUsers(userDoc.data().subUsers || []);
+            let subList = userDoc.data().subUsers || [];
+            // Adiciona o nome principal se não estiver na lista
+            if (user.displayName && !subList.includes(user.displayName)) {
+              subList.unshift(user.displayName);
+            }
+            setSubUsers(subList);
           }
         } catch (error) {
           console.error("Erro ao buscar sub-usuários:", error);
@@ -37,7 +40,7 @@ export default function UserSelection() {
 
   const handleConfirm = () => {
     if (selectedSubUser) {
-      // Armazena o sub-usuário selecionado (aqui usamos o localStorage; em um app maior, pode ser via Context)
+      // Armazena o sub-usuário selecionado no localStorage (ou em um contexto)
       localStorage.setItem("activeSubUser", selectedSubUser);
       navigate("/dashboard");
     }
@@ -61,6 +64,14 @@ export default function UserSelection() {
                 button
                 selected={selectedSubUser === subUser}
                 onClick={() => handleSelect(subUser)}
+                // Estilização customizada para destacar o item selecionado
+                sx={{
+                  backgroundColor: selectedSubUser === subUser ? "primary.main" : "inherit",
+                  color: selectedSubUser === subUser ? "primary.contrastText" : "inherit",
+                  "&:hover": { backgroundColor: "primary.light" },
+                  mb: 1,
+                  borderRadius: 1,
+                }}
               >
                 <ListItemText primary={subUser} />
               </ListItem>
