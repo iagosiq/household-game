@@ -1,3 +1,4 @@
+// src/pages/Tasks.jsx
 import React, { useEffect, useState } from "react";
 import {
   Container,
@@ -16,7 +17,7 @@ import {
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
 import EditIcon from "@mui/icons-material/Edit";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, query, where, getDoc } from "firebase/firestore";
+import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc, getDoc } from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
 
@@ -25,7 +26,7 @@ export default function Tasks() {
   const [description, setDescription] = useState("");
   const [points, setPoints] = useState("");
   const [periodicity, setPeriodicity] = useState("");
-  const [owner, setOwner] = useState("global"); // Padrão "global"
+  const [owner, setOwner] = useState("global"); // Valor padrão
   const [editId, setEditId] = useState(null);
   const [subUsers, setSubUsers] = useState(["global"]);
   const auth = getAuth();
@@ -44,7 +45,7 @@ export default function Tasks() {
     }
   };
 
-  // Função para buscar os sub-perfis do usuário logado
+  // Função para buscar os sub-perfis do usuário logado, incluindo o usuário principal
   const fetchSubUsers = async (uid) => {
     try {
       const userDocRef = doc(firestore, "users", uid);
@@ -52,13 +53,22 @@ export default function Tasks() {
 
       if (userDocSnap.exists()) {
         const userData = userDocSnap.data();
-        console.log("Dados do usuário:", userData); // Debug
+        console.log("Dados do usuário:", userData);
 
-        // Verifica se subUsers existe e é um array, senão usa array vazio
+        // Pega os sub-usuários salvos; se não for array, usa array vazio.
         const userSubProfiles = Array.isArray(userData.subUsers) ? userData.subUsers : [];
-
-        // Atualiza o estado com os sub-perfis + global
-        setSubUsers(["global", ...userSubProfiles]);
+        // Obtém o nome principal (displayName ou email)
+        const mainUserName = auth.currentUser.displayName || auth.currentUser.email;
+        // Garante que o nome principal esteja na lista (sem duplicar "global")
+        let finalList = ["global"];
+        if (mainUserName && !userSubProfiles.includes(mainUserName)) {
+          finalList.push(mainUserName);
+        } else if (mainUserName && userSubProfiles.includes(mainUserName) === false) {
+          finalList.push(mainUserName);
+        }
+        // Acrescenta os sub-usuários
+        finalList = [...finalList, ...userSubProfiles];
+        setSubUsers(finalList);
       } else {
         console.warn("Usuário não encontrado no Firestore.");
       }
@@ -67,23 +77,22 @@ export default function Tasks() {
     }
   };
 
-  // useEffect para carregar tarefas e sub-perfis ao montar o componente
   useEffect(() => {
     fetchTasks();
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (user) {
-        fetchSubUsers(user.uid);
+        await fetchSubUsers(user.uid);
+      } else {
+        setSubUsers(["global"]); // Resetar se não houver usuário autenticado
       }
     });
-    return unsubscribe;
-  }, [auth]);
+    return () => unsubscribe();
+  }, []);
 
-  // Função para adicionar ou atualizar uma tarefa
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
       if (editId) {
-        // Atualiza a tarefa existente
         const taskRef = doc(firestore, "tasks", editId);
         await updateDoc(taskRef, {
           description,
@@ -93,7 +102,6 @@ export default function Tasks() {
         });
         setEditId(null);
       } else {
-        // Adiciona uma nova tarefa
         await addDoc(collection(firestore, "tasks"), {
           description,
           points: Number(points),
@@ -102,6 +110,7 @@ export default function Tasks() {
           createdAt: new Date(),
         });
       }
+      // Limpar os campos e resetar o seletor para "global"
       setDescription("");
       setPoints("");
       setPeriodicity("");
@@ -112,7 +121,6 @@ export default function Tasks() {
     }
   };
 
-  // Função para excluir uma tarefa
   const handleDelete = async (id) => {
     try {
       await deleteDoc(doc(firestore, "tasks", id));
@@ -122,7 +130,6 @@ export default function Tasks() {
     }
   };
 
-  // Função para iniciar a edição de uma tarefa
   const handleEdit = (task) => {
     setEditId(task.id);
     setDescription(task.description);
@@ -136,7 +143,11 @@ export default function Tasks() {
       <Typography variant="h4" gutterBottom>
         Gerenciar Tarefas
       </Typography>
-      <Box component="form" onSubmit={handleSubmit} sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4 }}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4 }}
+      >
         <TextField
           label="Descrição"
           variant="outlined"
@@ -180,33 +191,28 @@ export default function Tasks() {
           {editId ? "Atualizar Tarefa" : "Adicionar Tarefa"}
         </Button>
       </Box>
+
       <Typography variant="h5" gutterBottom>
         Lista de Tarefas
       </Typography>
       <List>
         {tasks.map((task) => (
-          <ListItem
-            key={task.id}
-            button // 🔹 Corrigido o erro do button aqui, antes estava `button={true}`
-            secondaryAction={
-              <Box>
-                <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(task)}>
-                  <EditIcon />
-                </IconButton>
-                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(task.id)}>
-                  <DeleteIcon />
-                </IconButton>
-              </Box>
-            }
-          >
+          <ListItem key={task.id} sx={{ display: "flex", justifyContent: "space-between" }}>
             <ListItemText
               primary={task.description}
               secondary={`Pontos: ${task.points} - Periodicidade: ${task.periodicity} dia(s) - Owner: ${task.owner}`}
             />
+            <Box>
+              <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(task)}>
+                <EditIcon />
+              </IconButton>
+              <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(task.id)}>
+                <DeleteIcon />
+              </IconButton>
+            </Box>
           </ListItem>
         ))}
       </List>
     </Container>
   );
 }
-
