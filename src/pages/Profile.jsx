@@ -1,4 +1,5 @@
 
+// // src/pages/Profile.jsx
 // import React, { useState, useEffect } from "react";
 // import { Container, Box, TextField, Button, Typography, Alert } from "@mui/material";
 // import { getAuth, updateEmail, updatePassword, updateProfile } from "firebase/auth";
@@ -16,7 +17,6 @@
 //   const [error, setError] = useState("");
 //   const [success, setSuccess] = useState("");
 
-//   // Carrega os dados do usuário (do Firestore ou Auth) ao montar a página
 //   useEffect(() => {
 //     const fetchUserData = async () => {
 //       if (user) {
@@ -26,7 +26,11 @@
 //             const data = userDoc.data();
 //             setName(data.name || user.displayName || "");
 //             setEmail(data.email || user.email || "");
-//             setBirthdate(data.birthdate || ""); // Formato YYYY-MM-DD
+//             // Verifica se o valor de data.birthdate é uma data válida
+//             const fetchedBirthdate = data.birthdate;
+//             // Se Date.parse não conseguir converter, retorna NaN
+//             const validBirthdate = !isNaN(Date.parse(fetchedBirthdate)) ? fetchedBirthdate : "";
+//             setBirthdate(validBirthdate);
 //           } else {
 //             setName(user.displayName || "");
 //             setEmail(user.email || "");
@@ -36,6 +40,7 @@
 //         }
 //       }
 //     };
+
 //     fetchUserData();
 //   }, [user]);
 
@@ -112,11 +117,11 @@
 //           Atualizar Perfil
 //         </Button>
 //       </Box>
-//       {/* Componente para gerenciar sub-usuários */}
 //       {user && <SubUsersManager userId={user.uid} />}
 //     </Container>
 //   );
 // }
+
 
 
 
@@ -147,9 +152,7 @@ export default function Profile() {
             const data = userDoc.data();
             setName(data.name || user.displayName || "");
             setEmail(data.email || user.email || "");
-            // Verifica se o valor de data.birthdate é uma data válida
             const fetchedBirthdate = data.birthdate;
-            // Se Date.parse não conseguir converter, retorna NaN
             const validBirthdate = !isNaN(Date.parse(fetchedBirthdate)) ? fetchedBirthdate : "";
             setBirthdate(validBirthdate);
           } else {
