@@ -1,31 +1,3 @@
-// // src/components/Navbar.jsx
-// import React from "react";
-// import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material";
-// import { Link } from "react-router-dom";
-
-// export default function Navbar() {
-//   return (
-//     <AppBar position="fixed" sx={{ top: 0, left: 0, right: 0 }}>
-//       <Toolbar>
-//         <Box sx={{ display: "flex" }}>
-//           <Button color="inherit" component={Link} to="/dashboard">
-//             Dashboard
-//           </Button>
-//           <Button color="inherit" component={Link} to="/history">
-//             Histórico
-//           </Button>
-//           <Button color="inherit" component={Link} to="/profile">
-//             Perfil
-//           </Button>
-//           <Button color="inherit" component={Link} to="/tasks">
-//             Tarefas
-//           </Button>
-//         </Box>
-//       </Toolbar>
-//     </AppBar>
-//   );
-// }
-
 import React, { useState, useEffect } from "react";
 import { AppBar, Toolbar, Typography, Button, Box } from "@mui/material";
 import { Link } from "react-router-dom";

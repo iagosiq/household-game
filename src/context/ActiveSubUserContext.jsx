@@ -1,24 +1,21 @@
 // src/context/ActiveSubUserContext.jsx
-import React, { createContext, useState, useEffect } from "react";
+import { createContext, useState } from "react";
 
-// Cria o contexto
 export const ActiveSubUserContext = createContext();
 
-// Provedor do contexto
-export function ActiveSubUserProvider({ children }) {
-  // Tenta carregar do localStorage, se existir
-  const [activeSubUser, setActiveSubUser] = useState(() => {
-    return localStorage.getItem("activeSubUser") || "";
-  });
+export const ActiveSubUserProvider = ({ children }) => {
+  const [activeSubUser, setActiveSubUser] = useState(null);
 
-  // Sempre que activeSubUser mudar, atualiza no localStorage
-  useEffect(() => {
-    localStorage.setItem("activeSubUser", activeSubUser);
-  }, [activeSubUser]);
+  const updateActiveSubUser = (newSubUser) => {
+    // Armazena apenas em memória
+    setActiveSubUser({ name: newSubUser });
+    console.log("Subusuário atualizado:", { name: newSubUser });
+  };
 
   return (
-    <ActiveSubUserContext.Provider value={{ activeSubUser, setActiveSubUser }}>
+    <ActiveSubUserContext.Provider value={{ activeSubUser, updateActiveSubUser }}>
       {children}
     </ActiveSubUserContext.Provider>
   );
-}
+};
+

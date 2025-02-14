@@ -1,16 +1,23 @@
-// // src/pages/Dashboard.jsx
 // import React, { useEffect, useState } from "react";
-// import { Container, Grid, Card, CardContent, Typography, CircularProgress, Button } from "@mui/material";
-// import { collection, getDocs } from "firebase/firestore";
+// import { 
+//   Container, Grid, Card, CardContent, Typography, 
+//   CircularProgress, Button 
+// } from "@mui/material";
+// import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
 // import { firestore } from "../firebase/firebase-config";
 // import { useNavigate } from "react-router-dom";
+// import { useAuth } from "../context/AuthContext"; // Importa o contexto de autenticação
 
 // export default function Dashboard() {
 //   const [tasks, setTasks] = useState([]);
 //   const [loading, setLoading] = useState(true);
+//   const { currentUser } = useAuth(); // Obtendo usuário autenticado
 //   const navigate = useNavigate();
 
+//   // Função para buscar tarefas
 //   const fetchTasks = async () => {
+//     if (!currentUser) return; // Evita chamar a função se o usuário não estiver autenticado
+
 //     setLoading(true);
 //     try {
 //       const querySnapshot = await getDocs(collection(firestore, "tasks"));
@@ -18,7 +25,17 @@
 //         id: doc.id,
 //         ...doc.data(),
 //       }));
-//       setTasks(tasksData);
+
+//       console.log("Usuário autenticado:", currentUser);
+//       console.log("Tarefas carregadas:", tasksData);
+
+//       // Filtra tarefas para incluir as do usuário e as globais
+//       const filteredTasks = tasksData.filter(
+//         (task) => task.owner === "global" || task.owner === currentUser.uid
+//       );
+
+//       console.log("Tarefas filtradas:", filteredTasks);
+//       setTasks(filteredTasks);
 //     } catch (error) {
 //       console.error("Erro ao buscar tarefas:", error);
 //     }
@@ -26,8 +43,25 @@
 //   };
 
 //   useEffect(() => {
-//     fetchTasks();
-//   }, []);
+//     if (currentUser) {
+//       fetchTasks();
+//     }
+//   }, [currentUser]); // 🔹 Agora ele busca as tarefas quando o usuário muda
+
+//   // Função para marcar uma tarefa como concluída
+//   const markTaskAsCompleted = async (taskId) => {
+//     try {
+//       const taskRef = doc(firestore, "tasks", taskId);
+//       await updateDoc(taskRef, { completed: true });
+//       setTasks((prevTasks) => 
+//         prevTasks.map((task) => 
+//           task.id === taskId ? { ...task, completed: true } : task
+//         )
+//       );
+//     } catch (error) {
+//       console.error("Erro ao atualizar tarefa:", error);
+//     }
+//   };
 
 //   return (
 //     <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -50,6 +84,22 @@
 //                       Pontos: {task.points} - Periodicidade: {task.periodicity} dia(s)
 //                     </Typography>
 //                     <Typography variant="body2">Owner: {task.owner}</Typography>
+//                     <Typography 
+//                       variant="body2" 
+//                       color={task.completed ? "green" : "red"}
+//                     >
+//                       {task.completed ? "Concluída" : "Pendente"}
+//                     </Typography>
+//                     {!task.completed && (
+//                       <Button 
+//                         variant="contained" 
+//                         color="primary" 
+//                         sx={{ mt: 2 }}
+//                         onClick={() => markTaskAsCompleted(task.id)}
+//                       >
+//                         Concluir Tarefa
+//                       </Button>
+//                     )}
 //                   </CardContent>
 //                 </Card>
 //               </Grid>
@@ -71,26 +121,43 @@
 // }
 
 
-import React, { useEffect, useState } from "react";
+// src/pages/Dashboard.jsx
+import React, { useEffect, useState, useCallback, useContext } from "react";
 import { 
   Container, Grid, Card, CardContent, Typography, 
   CircularProgress, Button 
 } from "@mui/material";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
 import { useNavigate } from "react-router-dom";
-import { useAuth } from "../context/AuthContext"; // Importa o contexto de autenticação
+import { useAuth } from "../context/AuthContext";
+import { ActiveSubUserContext } from "../context/ActiveSubUserContext";
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const { currentUser } = useAuth(); // Obtendo usuário autenticado
+  const { currentUser } = useAuth();
+  const { activeSubUser, updateActiveSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // Função para buscar tarefas
-  const fetchTasks = async () => {
-    if (!currentUser) return; // Evita chamar a função se o usuário não estiver autenticado
+  // Usa "global" como fallback se activeSubUser não estiver definido ou for nulo
+  const effectiveSubUser = activeSubUser?.name || "global";
 
+  // Botão para trocar o subusuário
+  const handleChangeSubUser = () => {
+    const newSubUser = prompt("Digite o nome do novo subusuário", effectiveSubUser);
+    if (newSubUser) {
+      updateActiveSubUser(newSubUser);
+    }
+  };
+
+  // Função para buscar tarefas
+  const fetchTasks = useCallback(async () => {
+    if (!currentUser) {
+      console.warn("Usuário não definido, não buscando tarefas.");
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     try {
       const querySnapshot = await getDocs(collection(firestore, "tasks"));
@@ -99,35 +166,42 @@ export default function Dashboard() {
         ...doc.data(),
       }));
 
-      console.log("Usuário autenticado:", currentUser);
-      console.log("Tarefas carregadas:", tasksData);
+      console.log("Usuário autenticado:", currentUser.uid);
+      console.log("Subusuário ativo:", effectiveSubUser);
+      console.log("Todas as tarefas:", tasksData);
 
-      // Filtra tarefas para incluir as do usuário e as globais
+      // Filtra as tarefas que sejam globais, ou cujo owner seja o UID do usuário ou o nome do subusuário
       const filteredTasks = tasksData.filter(
-        (task) => task.owner === "global" || task.owner === currentUser.uid
+        (task) =>
+          task.owner === "global" ||
+          task.owner === currentUser.uid ||
+          task.owner === effectiveSubUser
       );
 
       console.log("Tarefas filtradas:", filteredTasks);
       setTasks(filteredTasks);
     } catch (error) {
       console.error("Erro ao buscar tarefas:", error);
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-  };
+  }, [currentUser, effectiveSubUser]);
 
   useEffect(() => {
     if (currentUser) {
       fetchTasks();
+    } else {
+      setTasks([]);
+      setLoading(false);
     }
-  }, [currentUser]); // 🔹 Agora ele busca as tarefas quando o usuário muda
+  }, [currentUser, effectiveSubUser, fetchTasks]);
 
-  // Função para marcar uma tarefa como concluída
   const markTaskAsCompleted = async (taskId) => {
     try {
       const taskRef = doc(firestore, "tasks", taskId);
       await updateDoc(taskRef, { completed: true });
-      setTasks((prevTasks) => 
-        prevTasks.map((task) => 
+      setTasks((prevTasks) =>
+        prevTasks.map((task) =>
           task.id === taskId ? { ...task, completed: true } : task
         )
       );
@@ -141,6 +215,16 @@ export default function Dashboard() {
       <Typography variant="h4" gutterBottom align="center">
         Dashboard
       </Typography>
+      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+        Subusuário ativo: {effectiveSubUser}
+      </Typography>
+      <Button 
+        variant="outlined" 
+        onClick={handleChangeSubUser} 
+        sx={{ mb: 2, display: "block", mx: "auto" }}
+      >
+        Trocar Subusuário
+      </Button>
       {loading ? (
         <Grid container justifyContent="center">
           <CircularProgress />
@@ -157,10 +241,7 @@ export default function Dashboard() {
                       Pontos: {task.points} - Periodicidade: {task.periodicity} dia(s)
                     </Typography>
                     <Typography variant="body2">Owner: {task.owner}</Typography>
-                    <Typography 
-                      variant="body2" 
-                      color={task.completed ? "green" : "red"}
-                    >
+                    <Typography variant="body2" color={task.completed ? "green" : "red"}>
                       {task.completed ? "Concluída" : "Pendente"}
                     </Typography>
                     {!task.completed && (
