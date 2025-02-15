@@ -1,4 +1,4 @@
-// src/pages/Dashboard.jsx
+
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import {
   Container,
@@ -7,7 +7,8 @@ import {
   CardContent,
   Typography,
   CircularProgress,
-  Button
+  Button,
+  Box
 } from "@mui/material";
 import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
@@ -19,18 +20,15 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
-  const { activeSubUser, updateActiveSubUser } = useContext(ActiveSubUserContext);
+  const { activeSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // effectiveOwner: se activeSubUser for um objeto com "name", usa-o; caso contrário, "global"
-  const effectiveOwner = activeSubUser && activeSubUser.name ? activeSubUser.name : "global";
+  // Se activeSubUser for definido, use-o; caso contrário, fallback para "global"
+  const effectiveOwner = activeSubUser || "global";
 
-  // Função para trocar subusuário via prompt
   const handleChangeSubUser = () => {
-    const newSubUser = prompt("Digite o nome do novo subusuário", effectiveOwner);
-    if (newSubUser) {
-      updateActiveSubUser(newSubUser);
-    }
+    // Navega para a tela de seleção
+    navigate("/user-selection");
   };
 
   const fetchTasks = useCallback(async () => {
@@ -51,11 +49,17 @@ export default function Dashboard() {
       console.log("Owner efetivo:", effectiveOwner);
       console.log("Todas as tarefas:", tasksData);
 
-      // Filtra tarefas: mostra as tarefas cujo owner seja "global" OR currentUser.uid OR effectiveOwner
-      const filteredTasks = tasksData.filter((task) =>
-        task.owner === "global" ||
-        task.owner === currentUser.uid ||
-        task.owner === effectiveOwner
+      // Transformação: se a tarefa for global e o perfil ativo não for "global", substitui o owner
+      const transformedTasks = tasksData.map((task) => {
+        if (task.owner === "global" && effectiveOwner !== "global") {
+          return { ...task, owner: effectiveOwner };
+        }
+        return task;
+      });
+
+      // Filtra tarefas: mostra as que tenham owner igual ao UID ou igual ao subusuário ativo
+      const filteredTasks = transformedTasks.filter((task) =>
+        task.owner === currentUser.uid || task.owner === effectiveOwner
       );
 
       console.log("Tarefas filtradas:", filteredTasks);
@@ -90,6 +94,18 @@ export default function Dashboard() {
     }
   };
 
+  // Calcula a pontuação acumulada para cada owner a partir das tarefas concluídas
+  const calculatePoints = () => {
+    return tasks.reduce((acc, task) => {
+      if (task.completed) {
+        acc[task.owner] = (acc[task.owner] || 0) + task.points;
+      }
+      return acc;
+    }, {});
+  };
+
+  const pointsByOwner = calculatePoints();
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       <Typography variant="h4" gutterBottom align="center">
@@ -100,11 +116,30 @@ export default function Dashboard() {
       </Typography>
       <Button
         variant="outlined"
-        onClick={() => navigate("/user-selection")}
+        onClick={handleChangeSubUser}
         sx={{ mb: 2, display: "block", mx: "auto" }}
       >
         Trocar Subusuário
       </Button>
+
+      {/* Painel de Pontuação */}
+      <Box sx={{ mb: 4, p: 2, border: "1px solid #ccc", borderRadius: 2 }}>
+        <Typography variant="h6" align="center" gutterBottom>
+          Pontuação Acumulada
+        </Typography>
+        {Object.keys(pointsByOwner).length ? (
+          Object.entries(pointsByOwner).map(([ownerKey, pts]) => (
+            <Typography key={ownerKey} variant="body1" align="center">
+              {ownerKey}: {pts} ponto(s)
+            </Typography>
+          ))
+        ) : (
+          <Typography variant="body1" align="center">
+            Nenhuma pontuação acumulada.
+          </Typography>
+        )}
+      </Box>
+
       {loading ? (
         <Grid container justifyContent="center">
           <CircularProgress />

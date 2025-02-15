@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useContext } from "react";
 import { Container, Box, Typography, List, ListItemButton, ListItemText, Button } from "@mui/material";
 import { doc, getDoc } from "firebase/firestore";
@@ -23,11 +24,13 @@ export default function UserSelection() {
           if (userDoc.exists()) {
             subList = userDoc.data().subUsers || [];
           }
+          // Obtenha o perfil principal (displayName ou email)
           const mainProfile = user.displayName || user.email || "Sem Nome";
           if (!subList.includes(mainProfile)) {
             subList.unshift(mainProfile);
           }
           setSubUsers(subList);
+          // Seleciona automaticamente o primeiro perfil se nenhum estiver selecionado
           if (!selectedSubUser && subList.length > 0) {
             setSelectedSubUser(subList[0]);
           }
@@ -48,7 +51,6 @@ export default function UserSelection() {
   const handleConfirm = () => {
     if (selectedSubUser) {
       console.log("Subusuário confirmado:", selectedSubUser);
-      // Atualiza o contexto com o perfil selecionado
       updateActiveSubUser(selectedSubUser);
       navigate("/dashboard");
     }
