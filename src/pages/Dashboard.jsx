@@ -1,3 +1,4 @@
+// src/pages/Dashboard.jsx
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import {
   Container,
@@ -18,11 +19,19 @@ export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const { currentUser } = useAuth();
-  const { activeSubUser } = useContext(ActiveSubUserContext);
+  const { activeSubUser, updateActiveSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // Se activeSubUser estiver definido, usamos seu valor; caso contrário, fallback para "global"
-  const effectiveOwner = activeSubUser || "global";
+  // effectiveOwner: se activeSubUser for um objeto com "name", usa-o; caso contrário, "global"
+  const effectiveOwner = activeSubUser && activeSubUser.name ? activeSubUser.name : "global";
+
+  // Função para trocar subusuário via prompt
+  const handleChangeSubUser = () => {
+    const newSubUser = prompt("Digite o nome do novo subusuário", effectiveOwner);
+    if (newSubUser) {
+      updateActiveSubUser(newSubUser);
+    }
+  };
 
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
@@ -42,9 +51,11 @@ export default function Dashboard() {
       console.log("Owner efetivo:", effectiveOwner);
       console.log("Todas as tarefas:", tasksData);
 
-      // Filtra tarefas: owner igual ao UID ou igual ao nome do subusuário selecionado
+      // Filtra tarefas: mostra as tarefas cujo owner seja "global" OR currentUser.uid OR effectiveOwner
       const filteredTasks = tasksData.filter((task) =>
-        task.owner === currentUser.uid || task.owner === effectiveOwner
+        task.owner === "global" ||
+        task.owner === currentUser.uid ||
+        task.owner === effectiveOwner
       );
 
       console.log("Tarefas filtradas:", filteredTasks);
