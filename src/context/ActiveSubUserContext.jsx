@@ -1,10 +1,10 @@
-
+// src/context/ActiveSubUserContext.jsx
 import { createContext, useState, useEffect } from "react";
 
 export const ActiveSubUserContext = createContext();
 
 export const ActiveSubUserProvider = ({ children }) => {
-  // Armazena apenas uma string
+  // Inicia com "global" como padrão
   const [activeSubUser, setActiveSubUser] = useState("global");
 
   useEffect(() => {

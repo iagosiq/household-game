@@ -1,4 +1,4 @@
-
+// src/pages/UserSelection.jsx
 import React, { useState, useEffect, useContext } from "react";
 import { Container, Box, Typography, List, ListItemButton, ListItemText, Button } from "@mui/material";
 import { doc, getDoc } from "firebase/firestore";
@@ -30,7 +30,6 @@ export default function UserSelection() {
             subList.unshift(mainProfile);
           }
           setSubUsers(subList);
-          // Seleciona automaticamente o primeiro perfil se nenhum estiver selecionado
           if (!selectedSubUser && subList.length > 0) {
             setSelectedSubUser(subList[0]);
           }

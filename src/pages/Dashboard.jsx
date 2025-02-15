@@ -1,4 +1,4 @@
-
+// src/pages/Dashboard.jsx
 import React, { useEffect, useState, useCallback, useContext } from "react";
 import {
   Container,
@@ -10,7 +10,7 @@ import {
   Button,
   Box
 } from "@mui/material";
-import { collection, getDocs, updateDoc, doc } from "firebase/firestore";
+import { collection, getDocs, updateDoc, doc, getDoc, increment } from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -19,18 +19,32 @@ import { ActiveSubUserContext } from "../context/ActiveSubUserContext";
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userPoints, setUserPoints] = useState(0);
   const { currentUser } = useAuth();
   const { activeSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // Se activeSubUser for definido, use-o; caso contrário, fallback para "global"
+  // effectiveOwner é o valor do contexto ou "global" se não definido
   const effectiveOwner = activeSubUser || "global";
 
-  const handleChangeSubUser = () => {
-    // Navega para a tela de seleção
-    navigate("/user-selection");
-  };
+  // Função para buscar os pontos do usuário para o perfil ativo
+  const fetchUserPoints = useCallback(async () => {
+    if (!currentUser) return;
+    try {
+      const userDocSnap = await getDoc(doc(firestore, "users", currentUser.uid));
+      if (userDocSnap.exists()) {
+        const data = userDocSnap.data();
+        // Suponha que os pontos estejam armazenados em um campo pointsByProfile (objeto)
+        // Se não, use um campo simples, mas para diferenciar perfis, é melhor usar um objeto.
+        const pointsByProfile = data.pointsByProfile || {};
+        setUserPoints(pointsByProfile[effectiveOwner] || 0);
+      }
+    } catch (error) {
+      console.error("Erro ao buscar pontos do usuário:", error);
+    }
+  }, [currentUser, effectiveOwner]);
 
+  // Função para buscar tarefas e transformar tarefas globais
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
       console.warn("Usuário não definido, não buscando tarefas.");
@@ -46,10 +60,10 @@ export default function Dashboard() {
       }));
 
       console.log("Usuário autenticado:", currentUser.uid);
-      console.log("Owner efetivo:", effectiveOwner);
+      console.log("Perfil ativo:", effectiveOwner);
       console.log("Todas as tarefas:", tasksData);
 
-      // Transformação: se a tarefa for global e o perfil ativo não for "global", substitui o owner
+      // Transforme tarefas globais: se task.owner é "global" e effectiveOwner não é "global", atribua effectiveOwner
       const transformedTasks = tasksData.map((task) => {
         if (task.owner === "global" && effectiveOwner !== "global") {
           return { ...task, owner: effectiveOwner };
@@ -57,9 +71,10 @@ export default function Dashboard() {
         return task;
       });
 
-      // Filtra tarefas: mostra as que tenham owner igual ao UID ou igual ao subusuário ativo
-      const filteredTasks = transformedTasks.filter((task) =>
-        task.owner === currentUser.uid || task.owner === effectiveOwner
+      // Filtra tarefas: exibe tarefas cujo owner seja igual ao UID ou igual ao perfil ativo
+      const filteredTasks = transformedTasks.filter(
+        (task) =>
+          task.owner === currentUser.uid || task.owner === effectiveOwner
       );
 
       console.log("Tarefas filtradas:", filteredTasks);
@@ -74,37 +89,33 @@ export default function Dashboard() {
   useEffect(() => {
     if (currentUser) {
       fetchTasks();
+      fetchUserPoints();
     } else {
       setTasks([]);
       setLoading(false);
     }
-  }, [currentUser, effectiveOwner, fetchTasks]);
+  }, [currentUser, effectiveOwner, fetchTasks, fetchUserPoints]);
 
-  const markTaskAsCompleted = async (taskId) => {
+  const markTaskAsCompleted = async (taskId, taskPoints) => {
     try {
       const taskRef = doc(firestore, "tasks", taskId);
       await updateDoc(taskRef, { completed: true });
+      // Atualiza os pontos do usuário para o perfil ativo
+      const userRef = doc(firestore, "users", currentUser.uid);
+      // Aqui, assumindo que você tem um campo "pointsByProfile" no documento do usuário
+      await updateDoc(userRef, {
+        [`pointsByProfile.${effectiveOwner}`]: increment(taskPoints)
+      });
       setTasks((prevTasks) =>
         prevTasks.map((task) =>
           task.id === taskId ? { ...task, completed: true } : task
         )
       );
+      setUserPoints((prev) => prev + taskPoints);
     } catch (error) {
       console.error("Erro ao atualizar tarefa:", error);
     }
   };
-
-  // Calcula a pontuação acumulada para cada owner a partir das tarefas concluídas
-  const calculatePoints = () => {
-    return tasks.reduce((acc, task) => {
-      if (task.completed) {
-        acc[task.owner] = (acc[task.owner] || 0) + task.points;
-      }
-      return acc;
-    }, {});
-  };
-
-  const pointsByOwner = calculatePoints();
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
@@ -114,32 +125,16 @@ export default function Dashboard() {
       <Typography variant="h6" align="center" sx={{ mb: 2 }}>
         Exibindo tarefas para: {effectiveOwner}
       </Typography>
+      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+        Pontos acumulados: {userPoints}
+      </Typography>
       <Button
         variant="outlined"
-        onClick={handleChangeSubUser}
+        onClick={() => navigate("/user-selection")}
         sx={{ mb: 2, display: "block", mx: "auto" }}
       >
-        Trocar Subusuário
+        Trocar Perfil
       </Button>
-
-      {/* Painel de Pontuação */}
-      <Box sx={{ mb: 4, p: 2, border: "1px solid #ccc", borderRadius: 2 }}>
-        <Typography variant="h6" align="center" gutterBottom>
-          Pontuação Acumulada
-        </Typography>
-        {Object.keys(pointsByOwner).length ? (
-          Object.entries(pointsByOwner).map(([ownerKey, pts]) => (
-            <Typography key={ownerKey} variant="body1" align="center">
-              {ownerKey}: {pts} ponto(s)
-            </Typography>
-          ))
-        ) : (
-          <Typography variant="body1" align="center">
-            Nenhuma pontuação acumulada.
-          </Typography>
-        )}
-      </Box>
-
       {loading ? (
         <Grid container justifyContent="center">
           <CircularProgress />
@@ -164,7 +159,7 @@ export default function Dashboard() {
                         variant="contained"
                         color="primary"
                         sx={{ mt: 2 }}
-                        onClick={() => markTaskAsCompleted(task.id)}
+                        onClick={() => markTaskAsCompleted(task.id, task.points)}
                       >
                         Concluir Tarefa
                       </Button>
