@@ -36,9 +36,6 @@ export default function Navbar() {
             <Button color="inherit" component={Link} to="/profile">
               Perfil
             </Button>
-            <Button color="inherit" component={Link} to="/history">
-              Histórico
-            </Button>
             <Button color="inherit" onClick={handleLogout} component={Link} to="/login">
               Sair
             </Button>

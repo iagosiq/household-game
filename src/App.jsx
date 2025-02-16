@@ -7,7 +7,6 @@ import Register from "./pages/Register";
 import Dashboard from "./pages/Dashboard";
 import Tasks from "./pages/Tasks";
 import Profile from "./pages/Profile";
-import History from "./pages/History";
 import CreateUser from "./pages/CreateUser";
 import UserSelection from "./pages/UserSelection";
 import Navbar from "./components/Navbar";
@@ -31,7 +30,6 @@ export default function App() {
               <Route path="/dashboard" element={<PrivateRoute component={<Dashboard />} />} />
               <Route path="/tasks" element={<PrivateRoute component={<Tasks />} />} />
               <Route path="/profile" element={<PrivateRoute component={<Profile />} />} />
-              <Route path="/history" element={<PrivateRoute component={<History />} />} />
               <Route path="/create-user" element={<PrivateRoute component={<CreateUser />} />} />
               <Route path="/user-selection" element={<PrivateRoute component={<UserSelection />} />} />
               <Route path="/" element={<Home />} />
