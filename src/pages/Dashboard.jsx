@@ -8,9 +8,18 @@ import {
   Typography,
   CircularProgress,
   Button,
-  Box
+  Box,
 } from "@mui/material";
-import { collection, getDocs, updateDoc, doc, getDoc, increment } from "firebase/firestore";
+import {
+  collection,
+  getDocs,
+  updateDoc,
+  doc,
+  writeBatch,
+  getDoc,
+  increment,
+  setDoc,
+} from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -24,18 +33,17 @@ export default function Dashboard() {
   const { activeSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // effectiveOwner é o valor do contexto ou "global" se não definido
+  // Definimos effectiveOwner como o valor do subusuário ativo ou, se não definido, "global"
   const effectiveOwner = activeSubUser || "global";
 
-  // Função para buscar os pontos do usuário para o perfil ativo
+  // Busca os pontos do usuário para o perfil ativo
   const fetchUserPoints = useCallback(async () => {
     if (!currentUser) return;
     try {
-      const userDocSnap = await getDoc(doc(firestore, "users", currentUser.uid));
+      const userRef = doc(firestore, "users", currentUser.uid);
+      const userDocSnap = await getDoc(userRef);
       if (userDocSnap.exists()) {
         const data = userDocSnap.data();
-        // Suponha que os pontos estejam armazenados em um campo pointsByProfile (objeto)
-        // Se não, use um campo simples, mas para diferenciar perfis, é melhor usar um objeto.
         const pointsByProfile = data.pointsByProfile || {};
         setUserPoints(pointsByProfile[effectiveOwner] || 0);
       }
@@ -44,10 +52,10 @@ export default function Dashboard() {
     }
   }, [currentUser, effectiveOwner]);
 
-  // Função para buscar tarefas e transformar tarefas globais
+  // Busca todas as tarefas e filtra para exibir as tarefas relevantes:
+  // aquelas cujo owner é o UID do usuário, o perfil ativo ou "global".
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
-      console.warn("Usuário não definido, não buscando tarefas.");
       setLoading(false);
       return;
     }
@@ -58,25 +66,16 @@ export default function Dashboard() {
         id: doc.id,
         ...doc.data(),
       }));
-
       console.log("Usuário autenticado:", currentUser.uid);
       console.log("Perfil ativo:", effectiveOwner);
       console.log("Todas as tarefas:", tasksData);
-
-      // Transforme tarefas globais: se task.owner é "global" e effectiveOwner não é "global", atribua effectiveOwner
-      const transformedTasks = tasksData.map((task) => {
-        if (task.owner === "global" && effectiveOwner !== "global") {
-          return { ...task, owner: effectiveOwner };
-        }
-        return task;
-      });
-
-      // Filtra tarefas: exibe tarefas cujo owner seja igual ao UID ou igual ao perfil ativo
-      const filteredTasks = transformedTasks.filter(
+      // Filtra tarefas: mostramos todas as tarefas que são do usuário, do perfil ativo ou globais
+      const filteredTasks = tasksData.filter(
         (task) =>
-          task.owner === currentUser.uid || task.owner === effectiveOwner
+          task.owner === currentUser.uid ||
+          task.owner === effectiveOwner ||
+          task.owner === "global"
       );
-
       console.log("Tarefas filtradas:", filteredTasks);
       setTasks(filteredTasks);
     } catch (error) {
@@ -96,24 +95,92 @@ export default function Dashboard() {
     }
   }, [currentUser, effectiveOwner, fetchTasks, fetchUserPoints]);
 
+  // Marca uma tarefa como concluída e incrementa os pontos no documento do usuário
   const markTaskAsCompleted = async (taskId, taskPoints) => {
     try {
       const taskRef = doc(firestore, "tasks", taskId);
       await updateDoc(taskRef, { completed: true });
-      // Atualiza os pontos do usuário para o perfil ativo
       const userRef = doc(firestore, "users", currentUser.uid);
-      // Aqui, assumindo que você tem um campo "pointsByProfile" no documento do usuário
       await updateDoc(userRef, {
-        [`pointsByProfile.${effectiveOwner}`]: increment(taskPoints)
+        [`pointsByProfile.${effectiveOwner}`]: increment(taskPoints),
       });
-      setTasks((prevTasks) =>
-        prevTasks.map((task) =>
-          task.id === taskId ? { ...task, completed: true } : task
-        )
-      );
-      setUserPoints((prev) => prev + taskPoints);
+      fetchTasks();
+      fetchUserPoints();
     } catch (error) {
-      console.error("Erro ao atualizar tarefa:", error);
+      console.error("Erro ao concluir tarefa:", error);
+    }
+  };
+
+  // Reseta uma tarefa individual (marca como não concluída)
+  const resetTask = async (taskId) => {
+    try {
+      const taskRef = doc(firestore, "tasks", taskId);
+      await updateDoc(taskRef, { completed: false });
+      fetchTasks();
+    } catch (error) {
+      console.error("Erro ao resetar tarefa:", error);
+    }
+  };
+
+  // Reseta todas as tarefas para não concluídas (para o usuário atual, perfil ativo ou globais)
+  const resetAllTasks = async () => {
+    try {
+      const batch = writeBatch(firestore);
+      const querySnapshot = await getDocs(collection(firestore, "tasks"));
+      querySnapshot.docs.forEach((docSnap) => {
+        const task = docSnap.data();
+        if (
+          task.owner === currentUser.uid ||
+          task.owner === effectiveOwner ||
+          task.owner === "global"
+        ) {
+          batch.update(docSnap.ref, { completed: false });
+        }
+      });
+      await batch.commit();
+      fetchTasks();
+    } catch (error) {
+      console.error("Erro ao resetar todas as tarefas:", error);
+    }
+  };
+
+  // Encerra a campanha:
+  // - Reseta todas as tarefas
+  // - Zera os pontos do perfil ativo no documento do usuário
+  // - Armazena um registro no histórico com os pontos atuais (como ranking)
+  const endCampaign = async () => {
+    try {
+      const batch = writeBatch(firestore);
+      // Reseta todas as tarefas
+      const tasksSnapshot = await getDocs(collection(firestore, "tasks"));
+      tasksSnapshot.docs.forEach((docSnap) => {
+        const task = docSnap.data();
+        if (
+          task.owner === currentUser.uid ||
+          task.owner === effectiveOwner ||
+          task.owner === "global"
+        ) {
+          batch.update(docSnap.ref, { completed: false });
+        }
+      });
+      // Zera os pontos do perfil ativo
+      const userRef = doc(firestore, "users", currentUser.uid);
+      batch.update(userRef, { [`pointsByProfile.${effectiveOwner}`]: 0 });
+      await batch.commit();
+
+      // Armazena o ranking na coleção "history"
+      // Usaremos o timestamp atual como ID do documento de histórico
+      const historyRef = doc(collection(firestore, "history"));
+      await setDoc(historyRef, {
+        userId: currentUser.uid,
+        profile: effectiveOwner,
+        points: userPoints,
+        timestamp: new Date().toISOString(),
+      });
+      fetchTasks();
+      fetchUserPoints();
+    } catch (error) {
+      console.error("Erro ao encerrar campanha:", error);
     }
   };
 
@@ -135,6 +202,17 @@ export default function Dashboard() {
       >
         Trocar Perfil
       </Button>
+      
+      {/* Botões de Reset */}
+      <Box display="flex" justifyContent="center" gap={2} mb={2}>
+        <Button variant="contained" color="warning" onClick={resetAllTasks}>
+          Resetar Todas as Tarefas
+        </Button>
+        <Button variant="contained" color="error" onClick={endCampaign}>
+          Encerrar Campanha
+        </Button>
+      </Box>
+
       {loading ? (
         <Grid container justifyContent="center">
           <CircularProgress />
@@ -154,16 +232,26 @@ export default function Dashboard() {
                     <Typography variant="body2" color={task.completed ? "green" : "red"}>
                       {task.completed ? "Concluída" : "Pendente"}
                     </Typography>
-                    {!task.completed && (
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        sx={{ mt: 2 }}
-                        onClick={() => markTaskAsCompleted(task.id, task.points)}
-                      >
-                        Concluir Tarefa
-                      </Button>
-                    )}
+                    <Box mt={2} display="flex" gap={1}>
+                      {!task.completed && (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          onClick={() => markTaskAsCompleted(task.id, task.points)}
+                        >
+                          Concluir
+                        </Button>
+                      )}
+                      {task.completed && (
+                        <Button
+                          variant="outlined"
+                          color="secondary"
+                          onClick={() => resetTask(task.id)}
+                        >
+                          Resetar
+                        </Button>
+                      )}
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -175,6 +263,7 @@ export default function Dashboard() {
           )}
         </Grid>
       )}
+
       <Grid container justifyContent="center" sx={{ mt: 4 }}>
         <Button variant="contained" onClick={() => navigate("/tasks")}>
           Gerenciar Tarefas
