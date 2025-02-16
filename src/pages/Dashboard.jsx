@@ -162,11 +162,11 @@ export default function Dashboard() {
       <Button
         variant="outlined"
         onClick={() => navigate("/user-selection")}
-        sx={{ mb: 2, display: "block", mx: "auto", fontSize: "0.9rem", padding: "6px 12px" }}
+        sx={{ mb: 2, display: "block", mx: "auto", fontSize: "0.7rem", padding: "6px 12px" }}
       >
         Trocar Perfil
       </Button>
-      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+      <Typography variant="h7" align="center" sx={{ mb: 2 }}>
         Exibindo tarefas para: {effectiveOwner}
       </Typography>
 
@@ -184,14 +184,11 @@ export default function Dashboard() {
             <Grid item xs={12} sm={6} md={4} key={task.id}>
               <Card
                 sx={{
-                  backgroundColor: task.owner === "global" ? "#e3f2fd" : "inherit",
+                  backgroundColor: task.owner === "global" ? "#F5F4F2" : "inherit",
                 }}
               >
                 <CardContent>
                   <Typography variant="h6">{task.description}</Typography>
-                  <Typography color="text.secondary">
-                    Pontos: {task.points} - Periodicidade: {task.periodicity} dia(s)
-                  </Typography>
                   <Typography variant="body2">Owner: {task.owner}</Typography>
                   <Typography variant="body2" color="red">
                     Pendente
@@ -204,14 +201,6 @@ export default function Dashboard() {
                       onClick={() => completeTask(task.id)}
                     >
                       Concluir
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      sx={{ fontSize: "0.8rem", padding: "4px 8px" }}
-                      onClick={() => resetTask(task.id)}
-                    >
-                      Resetar
                     </Button>
                   </Box>
                 </CardContent>
@@ -242,9 +231,6 @@ export default function Dashboard() {
               >
                 <CardContent>
                   <Typography variant="h6">{task.description}</Typography>
-                  <Typography color="text.secondary">
-                    Pontos: {task.points} - Periodicidade: {task.periodicity} dia(s)
-                  </Typography>
                   <Typography variant="body2">Owner: {task.owner}</Typography>
                   <Typography variant="body2" color="green">
                     Concluída
@@ -273,18 +259,10 @@ export default function Dashboard() {
         <Button
           variant="contained"
           color="warning"
-          sx={{ fontSize: "0.9rem", padding: "6px 12px" }}
+          sx={{ fontSize: "0.8rem", padding: "6px 12px" }}
           onClick={resetAllTasks}
         >
           Resetar Todas as Tarefas
-        </Button>
-        <Button
-          variant="contained"
-          color="error"
-          sx={{ fontSize: "0.9rem", padding: "6px 12px" }}
-          onClick={endCampaign}
-        >
-          Encerrar Campanha
         </Button>
       </Box>
 
@@ -292,7 +270,7 @@ export default function Dashboard() {
         <Button
           variant="contained"
           onClick={() => navigate("/tasks")}
-          sx={{ fontSize: "0.9rem", padding: "6px 12px" }}
+          sx={{ fontSize: "0.7rem", padding: "6px 12px" }}
         >
           Gerenciar Tarefas
         </Button>
