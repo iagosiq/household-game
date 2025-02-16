@@ -156,9 +156,6 @@ export default function Dashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Dashboard
-      </Typography>
       <Button
         variant="outlined"
         onClick={() => navigate("/user-selection")}
