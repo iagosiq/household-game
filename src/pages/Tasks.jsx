@@ -159,14 +159,6 @@ export default function Tasks() {
           required
         />
         <TextField
-          label="Pontos"
-          variant="outlined"
-          type="number"
-          value={points}
-          onChange={(e) => setPoints(e.target.value)}
-          required
-        />
-        <TextField
           label="Periodicidade (em dias)"
           variant="outlined"
           type="number"
