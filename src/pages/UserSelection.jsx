@@ -57,7 +57,7 @@ export default function UserSelection() {
 
   return (
     <Container maxWidth="sm" sx={{ mt: 4 }}>
-      <Typography variant="h5" align="center" gutterBottom>
+      <Typography variant="h5" align="center" gutterBottom component="h1">
         Selecione seu perfil
       </Typography>
       {subUsers.length === 0 ? (
@@ -74,7 +74,7 @@ export default function UserSelection() {
                 onClick={() => handleSelect(subUser)}
                 sx={{
                   backgroundColor: selectedSubUser === subUser ? "primary.main" : "inherit",
-                  color: selectedSubUser === subUser ? "primary.contrastText" : "inherit",
+                  color: selectedSubUser === subUser ? "#1876D1" : "inherit",
                   "&:hover": { backgroundColor: "primary.light" },
                   mb: 1,
                   borderRadius: 1,
