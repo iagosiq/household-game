@@ -130,11 +130,8 @@ export default function Dashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Dashboard
-      </Typography>
-      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-        Usuário ativo: {effectiveOwner}
+      <Typography variant="h4" align="center" sx={{ mb: 2 }}>
+        Bem-vindo(a) {effectiveOwner}
       </Typography>
       <Button
         variant="outlined"
@@ -167,7 +164,7 @@ export default function Dashboard() {
 
 
       <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+        <Typography variant="h6" align="center" color="red" sx={{ mb: 2 }}>
           Tarefas Pendentes
         </Typography>
         {loading ? (
@@ -211,7 +208,7 @@ export default function Dashboard() {
 
       {Object.keys(tasksByOwner).map((ownerName) => (
         <Box key={ownerName} sx={{ mt: 4 }}>
-          <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+          <Typography variant="h6" align="center" color="green" sx={{ mb: 2 }}>
             Tarefas Concluídas por {ownerName}
           </Typography>
           <Grid container spacing={2}>
