@@ -17,6 +17,7 @@ import {
   doc,
   writeBatch,
 } from "firebase/firestore";
+import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { firestore } from "../firebase/firebase-config";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
@@ -29,11 +30,9 @@ export default function Dashboard() {
   const { activeSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
 
-  // Se activeSubUser for definido, use seu "name", caso contrário use "global"
-  const effectiveOwner = activeSubUser && activeSubUser.name ? activeSubUser.name : "global";
-  console.log("Subusuário ativo no Dashboard:", activeSubUser);
+  const effectiveOwner = activeSubUser?.name || "global";
 
-  // Função para buscar as tarefas do usuário atual (filtrando pelo campo userId)
+
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
       setLoading(false);
@@ -44,7 +43,9 @@ export default function Dashboard() {
       const querySnapshot = await getDocs(collection(firestore, "tasks"));
       const tasksData = querySnapshot.docs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
-        .filter((task) => task.userId === currentUser.uid);
+        .filter((task) => task.userId === currentUser.uid)
+        .sort((a, b) => a.description.localeCompare(b.description)); // Ordenação alfabética
+  
       setTasks(tasksData);
     } catch (error) {
       console.error("Erro ao buscar tarefas:", error);
@@ -52,6 +53,7 @@ export default function Dashboard() {
       setLoading(false);
     }
   }, [currentUser]);
+  
 
   useEffect(() => {
     if (currentUser) {
@@ -62,26 +64,28 @@ export default function Dashboard() {
     }
   }, [currentUser, fetchTasks]);
 
-  // Tarefas Pendentes: tarefas não concluídas e com owner vazio ou "global"
   const pendingTasks = tasks.filter(
-    (task) => !task.completed && (!task.owner || task.owner === "" || task.owner === "global")
+    (task) =>
+      !task.completed && (!task.owner || task.owner === "" || task.owner === "global")
   );
-  // Tarefas Concluídas: tarefas concluídas e cujo owner é diferente de vazio e "global"
+
   const concludedTasks = tasks.filter(
     (task) => task.completed && task.owner && task.owner !== "" && task.owner !== "global"
   );
 
-  // Agrupa as tarefas concluídas por subusuário (owner)
   const tasksByOwner = concludedTasks.reduce((acc, task) => {
     const owner = task.owner;
-    if (!acc[owner]) {
-      acc[owner] = [];
-    }
-    acc[owner].push(task);
+    acc[owner] = (acc[owner] || 0) + 1;
     return acc;
   }, {});
 
-  // Função para concluir uma tarefa pendente usando o subusuário ativo
+  const chartData = Object.keys(tasksByOwner).map((owner) => ({
+    name: owner,
+    value: tasksByOwner[owner],
+  }));
+
+  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF"];
+
   const completeTask = async (taskId) => {
     if (effectiveOwner === "global") {
       alert("Selecione um subusuário antes de concluir a tarefa.");
@@ -96,7 +100,6 @@ export default function Dashboard() {
     }
   };
 
-  // Função para resetar uma tarefa individual: volta para pendente (owner = "" e completed = false)
   const resetTask = async (taskId) => {
     try {
       const taskRef = doc(firestore, "tasks", taskId);
@@ -107,7 +110,6 @@ export default function Dashboard() {
     }
   };
 
-  // Função global para resetar todas as tarefas do usuário atual
   const resetAllTasks = async () => {
     if (!currentUser) return;
     try {
@@ -132,23 +134,38 @@ export default function Dashboard() {
         Dashboard
       </Typography>
       <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-        Subusuário ativo: {effectiveOwner}
+        Usuário ativo: {effectiveOwner}
       </Typography>
       <Button
         variant="outlined"
         onClick={() => navigate("/user-selection")}
-        sx={{
-          mb: 2,
-          display: "block",
-          mx: "auto",
-          fontSize: "0.9rem",
-          padding: "6px 12px",
-        }}
+        sx={{ mb: 2, display: "block", mx: "auto", fontSize: "0.9rem", padding: "6px 12px" }}
       >
         Trocar Perfil
       </Button>
 
-      {/* Seção de Tarefas Pendentes */}
+      {/* Gráfico Donuts de tarefas concluidas */}
+      <Box sx={{ display: "flex", justifyContent: "center", mt: 4 }}>
+        <PieChart width={400} height={300}>
+          <Pie
+            data={chartData}
+            cx="50%"
+            cy="50%"
+            innerRadius={60} // Adicionado para formato de donut
+            outerRadius={100}
+            fill="#8884d8"
+            dataKey="value"
+          >
+            {chartData.map((entry, index) => (
+              <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+            ))}
+          </Pie>
+          <Tooltip />
+          <Legend />
+        </PieChart>
+      </Box>
+
+
       <Box sx={{ mt: 2 }}>
         <Typography variant="h6" align="center" sx={{ mb: 2 }}>
           Tarefas Pendentes
@@ -187,15 +204,20 @@ export default function Dashboard() {
         )}
       </Box>
 
-      {/* Seção de Tarefas Concluídas agrupadas por subusuário */}
-      {Object.keys(tasksByOwner).length > 0 &&
-        Object.keys(tasksByOwner).map((ownerName) => (
-          <Box key={ownerName} sx={{ mt: 4 }}>
-            <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-              Tarefas Concluídas por {ownerName}
-            </Typography>
-            <Grid container spacing={2}>
-              {tasksByOwner[ownerName].map((task) => (
+      
+
+
+
+
+      {Object.keys(tasksByOwner).map((ownerName) => (
+        <Box key={ownerName} sx={{ mt: 4 }}>
+          <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+            Tarefas Concluídas por {ownerName}
+          </Typography>
+          <Grid container spacing={2}>
+            {concludedTasks
+              .filter((task) => task.owner === ownerName)
+              .map((task) => (
                 <Grid item xs={12} sm={6} md={4} key={task.id}>
                   <Card>
                     <CardContent>
@@ -217,11 +239,10 @@ export default function Dashboard() {
                   </Card>
                 </Grid>
               ))}
-            </Grid>
-          </Box>
-        ))}
+          </Grid>
+        </Box>
+      ))}
 
-      {/* Botão global para resetar todas as tarefas */}
       <Box display="flex" justifyContent="center" gap={2} sx={{ mt: 4 }}>
         <Button
           variant="contained"
