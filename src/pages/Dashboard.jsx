@@ -17,6 +17,8 @@ import {
   updateDoc,
   doc,
   writeBatch,
+  query,
+  where,
 } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { firestore } from "../firebase/firebase-config";
@@ -26,7 +28,7 @@ import { ActiveSubUserContext } from "../context/ActiveSubUserContext";
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
-  const [shoppingItems, setShoppingList] = useState([]);
+  const [shoppingList, setShoppingList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const { currentUser } = useAuth();
@@ -37,7 +39,7 @@ export default function Dashboard() {
   const effectiveOwner = activeSubUser?.name || "global";
   console.log("Subusuário ativo no Dashboard:", effectiveOwner);
 
-  // Função para buscar tarefas (filtrando pelo userId e ordenando alfabeticamente)
+  // Função para buscar tarefas do Firestore filtradas pelo userId e ordenadas alfabeticamente
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
       setLoading(false);
@@ -58,10 +60,15 @@ export default function Dashboard() {
     }
   }, [currentUser]);
 
-  // Função para buscar a lista de compras
+  // Função para buscar a lista de compras apenas para o usuário atual
   const fetchShoppingList = useCallback(async () => {
+    if (!currentUser) return;
     try {
-      const querySnapshot = await getDocs(collection(firestore, "shoppingItems"));
+      const shoppingQuery = query(
+        collection(firestore, "shoppingItems"),
+        where("userId", "==", currentUser.uid)
+      );
+      const querySnapshot = await getDocs(shoppingQuery);
       const items = querySnapshot.docs.map((docSnap) => ({
         id: docSnap.id,
         ...docSnap.data(),
@@ -70,7 +77,7 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Erro ao buscar lista de compras:", error);
     }
-  }, []);
+  }, [currentUser]);
 
   useEffect(() => {
     if (currentUser) {
@@ -87,14 +94,14 @@ export default function Dashboard() {
     task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
-  // Define as tarefas pendentes: não concluídas e com owner vazio ou "global"
+  // Tarefas pendentes: não concluídas e cujo owner esteja vazio ou "global"
   const pendingTasks = filteredTasks.filter(
     (task) =>
       !task.completed &&
       (!task.owner || task.owner === "" || task.owner === "global")
   );
 
-  // Define as tarefas concluídas: aquelas que possuem owner (diferente de "global")
+  // Tarefas concluídas: concluídas com owner definido (exceto "global")
   const concludedTasks = filteredTasks.filter(
     (task) =>
       task.completed &&
@@ -103,7 +110,7 @@ export default function Dashboard() {
       task.owner !== "global"
   );
 
-  // Agrupa as tarefas concluídas por subusuário
+  // Agrupa as tarefas concluídas por subusuário (owner)
   const tasksByOwner = concludedTasks.reduce((acc, task) => {
     const owner = task.owner;
     if (!acc[owner]) {
@@ -113,7 +120,7 @@ export default function Dashboard() {
     return acc;
   }, {});
 
-  // Dados para o gráfico de donut: cada objeto possui o nome do subusuário e o número de tarefas concluídas
+  // Dados para o gráfico de donut: cada objeto possui o nome do subusuário e a quantidade de tarefas concluídas
   const chartData = Object.keys(tasksByOwner).map((owner) => ({
     name: owner,
     value: tasksByOwner[owner].length,
@@ -168,8 +175,11 @@ export default function Dashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" align="center" sx={{ mb: 2 }}>
-        Bem-vindo(a) {effectiveOwner}
+      <Typography variant="h4" gutterBottom align="center">
+        Dashboard
+      </Typography>
+      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
+        Usuário ativo: {effectiveOwner}
       </Typography>
       <Button
         variant="outlined"
@@ -228,11 +238,11 @@ export default function Dashboard() {
           }}
           onClick={() => navigate("/lista-de-compras")}
         >
-          <Typography variant="subtitle1" sx={{ mb: 1 }} fontWeight={600}>
-            Lista de Compras
+          <Typography variant="subtitle1" sx={{ mb: 1 }}>
+            Pré-visualização da Lista de Compras
           </Typography>
-          {shoppingItems.length > 0 ? (
-            shoppingItems.slice(0, 3).map((item) => (
+          {shoppingList.length > 0 ? (
+            shoppingList.slice(0, 3).map((item) => (
               <Typography key={item.id} variant="body2">
                 {item.name}
               </Typography>

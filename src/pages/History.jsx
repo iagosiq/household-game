@@ -17,6 +17,7 @@ import {
   doc,
   query,
   orderBy,
+  where,
   writeBatch,
 } from "firebase/firestore";
 import { firestore } from "../firebase/firebase-config";
@@ -27,13 +28,14 @@ export default function History() {
   const [historyRecords, setHistoryRecords] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Função para buscar os registros de histórico, ordenados do mais recente para o mais antigo
+  // Função para buscar o histórico APENAS do usuário logado
   const fetchHistory = async () => {
     if (!currentUser) return;
     setLoading(true);
     try {
       const historyQuery = query(
         collection(firestore, "history"),
+        where("userId", "==", currentUser.uid), // 🔥 Filtrando pelo usuário logado
         orderBy("date", "desc")
       );
       const querySnapshot = await getDocs(historyQuery);
@@ -52,13 +54,10 @@ export default function History() {
     fetchHistory();
   }, [currentUser]);
 
-  // Função para "Iniciar Novo Dia":
-  // Agrega as tarefas concluídas do usuário atual (excluindo as globais),
-  // cria um registro de histórico e reseta as tarefas concluídas.
+  // Função para iniciar um novo dia e salvar no histórico
   const handleStartNewDay = async () => {
     if (!currentUser) return;
     try {
-      // Busca as tarefas concluídas do usuário atual (excluindo tarefas com owner "global")
       const tasksQuerySnapshot = await getDocs(collection(firestore, "tasks"));
       const tasksData = tasksQuerySnapshot.docs
         .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
@@ -70,8 +69,7 @@ export default function History() {
             task.owner !== "" &&
             task.owner !== "global"
         );
-      
-      // Agrupa as tarefas concluídas por subusuário
+
       const tasksByOwner = tasksData.reduce((acc, task) => {
         const owner = task.owner;
         if (!acc[owner]) acc[owner] = [];
@@ -79,14 +77,14 @@ export default function History() {
         return acc;
       }, {});
 
-      // Cria um registro de histórico
+      // 🔥 Salva o histórico apenas com o usuário logado
       await addDoc(collection(firestore, "history"), {
         userId: currentUser.uid,
         date: new Date(),
         tasksByOwner: tasksByOwner,
       });
 
-      // Reseta as tarefas concluídas para o estado pendente (owner = "", completed = false)
+      // Reseta as tarefas concluídas
       const batch = writeBatch(firestore);
       tasksData.forEach((task) => {
         const taskRef = doc(firestore, "tasks", task.id);
@@ -154,10 +152,10 @@ export default function History() {
           </Card>
         ))
       ) : (
-        <Typography align="center">
-          Nenhum histórico encontrado.
-        </Typography>
+        <Typography align="center">Nenhum histórico encontrado.</Typography>
       )}
     </Container>
   );
 }
+
+
