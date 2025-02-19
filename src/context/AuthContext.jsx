@@ -1,19 +1,25 @@
-// src/context/AuthContext.jsx
-import React, { createContext, useContext, useState, useEffect } from "react";
+import React, { createContext, useState, useEffect, useContext } from "react";
 import { getAuth, onAuthStateChanged } from "firebase/auth";
-import { auth } from "../firebase/firebase-config";
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const auth = getAuth();
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setCurrentUser(user);
+      setLoading(false);
     });
-    return () => unsubscribe();
-  }, []);
+    return unsubscribe;
+  }, [auth]);
+
+  if (loading) {
+    // Você pode renderizar um spinner ou uma tela de loading
+    return <div>Carregando...</div>;
+  }
 
   return (
     <AuthContext.Provider value={{ currentUser }}>

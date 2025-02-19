@@ -51,6 +51,7 @@ export default function Navbar() {
         { label: "Tarefas", to: "/tasks" },
         { label: "Perfil", to: "/profile" },
         { label: "Lista de Compras", to: "/lista-de-compras" },
+        { label: "Histórico", to: "/history" },
         { label: "Sair", to: "/", action: handleLogout },
       ]
     : [
