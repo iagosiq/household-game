@@ -74,7 +74,7 @@ export default function UserSelection() {
                 onClick={() => handleSelect(subUser)}
                 sx={{
                   backgroundColor: selectedSubUser === subUser ? "primary.main" : "inherit",
-                  color: selectedSubUser === subUser ? "#1876D1" : "inherit",
+                  color: selectedSubUser === subUser ? "primary" : "inherit",
                   "&:hover": { backgroundColor: "primary.light" },
                   mb: 1,
                   borderRadius: 1,
