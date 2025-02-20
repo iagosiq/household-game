@@ -175,11 +175,8 @@ export default function Dashboard() {
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" gutterBottom align="center">
-        Dashboard
-      </Typography>
-      <Typography variant="h6" align="center" sx={{ mb: 2 }}>
-        Usuário ativo: {effectiveOwner}
+      <Typography variant="h4" align="center" sx={{ mb: 2 }}>
+        Bem-vindo(a) {effectiveOwner}
       </Typography>
       <Button
         variant="outlined"
@@ -238,8 +235,8 @@ export default function Dashboard() {
           }}
           onClick={() => navigate("/lista-de-compras")}
         >
-          <Typography variant="subtitle1" sx={{ mb: 1 }}>
-            Pré-visualização da Lista de Compras
+          <Typography variant="subtitle1" sx={{ mb: 1 }} fontWeight={600}>
+            Lista de Compras
           </Typography>
           {shoppingList.length > 0 ? (
             shoppingList.slice(0, 3).map((item) => (
