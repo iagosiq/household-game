@@ -11,8 +11,12 @@ import {
   ListItemText,
   IconButton,
   Checkbox,
+  Card,
+  CardContent,
 } from "@mui/material";
 import DeleteIcon from "@mui/icons-material/Delete";
+import StarIcon from "@mui/icons-material/Star";
+import StarBorderIcon from "@mui/icons-material/StarBorder";
 import {
   collection,
   query,
@@ -62,6 +66,7 @@ export default function ListaDeCompras() {
         userId: currentUser.uid,
         name: item.trim(),
         completed: false,
+        essential: false, // Novo campo para favoritos
       };
       await addDoc(collection(firestore, "shoppingItems"), newItem);
       setItem("");
@@ -82,6 +87,17 @@ export default function ListaDeCompras() {
     }
   };
 
+  // Alterna o status de essencial (favorito) de um item
+  const toggleEssentialItem = async (id, currentEssential) => {
+    try {
+      const itemRef = doc(firestore, "shoppingItems", id);
+      await updateDoc(itemRef, { essential: !currentEssential });
+      fetchItems();
+    } catch (error) {
+      console.error("Erro ao marcar item como essencial:", error);
+    }
+  };
+
   // Exclui um item
   const handleDeleteItem = async (id) => {
     try {
@@ -97,6 +113,8 @@ export default function ListaDeCompras() {
       <Typography variant="h4" align="center" gutterBottom>
         Lista de Compras
       </Typography>
+
+      {/* Campo para adicionar item */}
       <Box sx={{ display: "flex", gap: 2, mb: 2 }}>
         <TextField
           fullWidth
@@ -109,32 +127,76 @@ export default function ListaDeCompras() {
           Adicionar
         </Button>
       </Box>
+
+      {/* Lista de itens essenciais */}
+      {items.some((it) => it.essential) && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" align="center" gutterBottom>
+              Essenciais ⭐
+            </Typography>
+            <List>
+              {items
+                .filter((it) => it.essential)
+                .map((it) => (
+                  <ListItem
+                    key={it.id}
+                    secondaryAction={
+                      <IconButton onClick={() => handleDeleteItem(it.id)}>
+                        <DeleteIcon />
+                      </IconButton>
+                    }
+                  >
+                    <ListItemIcon>
+                      <Checkbox
+                        edge="start"
+                        checked={it.completed}
+                        onChange={() => toggleItemCompletion(it.id, it.completed)}
+                      />
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={it.name}
+                      sx={{ textDecoration: it.completed ? "line-through" : "none" }}
+                    />
+                    <IconButton onClick={() => toggleEssentialItem(it.id, it.essential)}>
+                      <StarIcon sx={{ color: "gold" }} />
+                    </IconButton>
+                  </ListItem>
+                ))}
+            </List>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* Lista de itens gerais */}
       <List>
-        {items.map((it) => (
-          <ListItem
-            key={it.id}
-            secondaryAction={
-              <IconButton
-                edge="end"
-                onClick={() => handleDeleteItem(it.id)}
-              >
-                <DeleteIcon />
-              </IconButton>
-            }
-          >
-            <ListItemIcon>
-              <Checkbox
-                edge="start"
-                checked={it.completed}
-                onChange={() => toggleItemCompletion(it.id, it.completed)}
+        {items
+          .filter((it) => !it.essential)
+          .map((it) => (
+            <ListItem
+              key={it.id}
+              secondaryAction={
+                <IconButton onClick={() => handleDeleteItem(it.id)}>
+                  <DeleteIcon />
+                </IconButton>
+              }
+            >
+              <ListItemIcon>
+                <Checkbox
+                  edge="start"
+                  checked={it.completed}
+                  onChange={() => toggleItemCompletion(it.id, it.completed)}
+                />
+              </ListItemIcon>
+              <ListItemText
+                primary={it.name}
+                sx={{ textDecoration: it.completed ? "line-through" : "none" }}
               />
-            </ListItemIcon>
-            <ListItemText
-              primary={it.name}
-              sx={{ textDecoration: it.completed ? "line-through" : "none" }}
-            />
-          </ListItem>
-        ))}
+              <IconButton onClick={() => toggleEssentialItem(it.id, it.essential)}>
+                {it.essential ? <StarIcon sx={{ color: "gold" }} /> : <StarBorderIcon />}
+              </IconButton>
+            </ListItem>
+          ))}
       </List>
     </Container>
   );
