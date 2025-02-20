@@ -64,8 +64,8 @@ export default function Navbar() {
 
   return (
     <>
-      <AppBar position="fixed" sx={{ width: "100%" }}>
-        <Toolbar>
+      <AppBar position="fixed" sx={{ width: "100%", height: "90px" }}>
+        <Toolbar sx={{ height: "100%", display: "flex", alignItems: "center" }}>
           <IconButton
             edge="start"
             color="inherit"
@@ -75,15 +75,16 @@ export default function Navbar() {
           >
             <MenuIcon />
           </IconButton>
-          <Box sx={{ flexGrow: 1, display: { xs: "block", sm: "none" } }}>
-            {/* Condição para esconder o texto se não estiver logado */}
-            {user && (
-              <Typography variant="h6" paddingTop={1.5} align="left" sx={{ mb: 2 }}>
-                Bem-vindo(a), {effectiveOwner}
+
+          {/* Logo ou título centralizado */}
+          <Box sx={{ flexGrow: 1, display: "flex", alignItems: "center" }}>
+              <Typography variant="h4" sx={{ display: "flex", alignItems: "center" }}>
+                OrganizApp
               </Typography>
-            )}
           </Box>
-          <Box sx={{ display: { xs: "none", sm: "block" } }}>
+
+          {/* Links do menu */}
+          <Box sx={{ display: { xs: "none", sm: "flex" }, gap: 2 }}>
             {menuLinks.map((link, index) =>
               link.action ? (
                 <Button key={index} color="inherit" onClick={link.action}>
@@ -98,6 +99,8 @@ export default function Navbar() {
           </Box>
         </Toolbar>
       </AppBar>
+
+
 
       <Drawer anchor="left" open={drawerOpen} onClose={toggleDrawer(false)}>
         <Box sx={{ width: 250 }} role="presentation" onClick={toggleDrawer(false)}>

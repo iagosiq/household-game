@@ -249,9 +249,10 @@ export default function Dashboard() {
     <Container maxWidth="lg" sx={{ mt: 4 }}>
       {/* Cabeçalho (exibido apenas em desktop) */}
       <Typography
-        variant="h4"
+        variant="h5"
         align="center"
-        sx={{ mb: 2, display: { xs: "none", sm: "block" } }}
+        sx={{ mb: 2, display: { xs: "block", sm: "block" } }}
+        
       >
         Bem-vindo(a) {effectiveOwner}
       </Typography>
