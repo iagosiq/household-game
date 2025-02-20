@@ -30,6 +30,9 @@ export default function Navbar() {
     return () => unsubscribe();
   }, [auth]);
 
+  // Define effectiveOwner: usa o displayName ou email, se disponível
+  const effectiveOwner = user ? (user.displayName || user.email || "Usuário") : "";
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -73,7 +76,13 @@ export default function Navbar() {
           >
             <MenuIcon />
           </IconButton>
-          {/* Botões normais para telas maiores */}
+          {/* Texto de boas-vindas visível apenas em mobile */}
+          <Box sx={{ flexGrow: 1, display: { xs: "block", sm: "none" } }}>
+            <Typography variant="h6" paddingTop={1.5} align="left" sx={{ mb: 2 }}>
+              Bem-vindo(a) {effectiveOwner}
+            </Typography>
+          </Box>
+          {/* Botões do menu visíveis apenas em desktop */}
           <Box sx={{ display: { xs: "none", sm: "block" } }}>
             {menuLinks.map((link, index) =>
               link.action ? (

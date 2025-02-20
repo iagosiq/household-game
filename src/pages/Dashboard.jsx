@@ -19,6 +19,7 @@ import {
   writeBatch,
   query,
   where,
+  addDoc,
 } from "firebase/firestore";
 import { PieChart, Pie, Cell, Tooltip, Legend } from "recharts";
 import { firestore } from "../firebase/firebase-config";
@@ -126,7 +127,7 @@ export default function Dashboard() {
     value: tasksByOwner[owner].length,
   }));
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#A28DFF"];
+  const COLORS = ["primary", "#5B5B5B", "##636363", "#FF8042", "#A28DFF"];
 
   // Função para concluir uma tarefa pendente usando o subusuário ativo
   const completeTask = async (taskId) => {
@@ -173,11 +174,62 @@ export default function Dashboard() {
     }
   };
 
+  // Função para iniciar um novo dia e salvar no histórico
+  const handleStartNewDay = async () => {
+    if (!currentUser) return;
+    try {
+      const tasksQuerySnapshot = await getDocs(collection(firestore, "tasks"));
+      const tasksData = tasksQuerySnapshot.docs
+        .map((docSnap) => ({ id: docSnap.id, ...docSnap.data() }))
+        .filter(
+          (task) =>
+            task.userId === currentUser.uid &&
+            task.completed &&
+            task.owner &&
+            task.owner !== "" &&
+            task.owner !== "global"
+        );
+
+      const tasksByOwner = tasksData.reduce((acc, task) => {
+        const owner = task.owner;
+        if (!acc[owner]) acc[owner] = [];
+        acc[owner].push(task.description);
+        return acc;
+      }, {});
+
+      // Salva o histórico apenas com o usuário logado
+      await addDoc(collection(firestore, "history"), {
+        userId: currentUser.uid,
+        date: new Date(),
+        tasksByOwner: tasksByOwner,
+        note: "", // Campo vazio para notas
+      });
+
+      // Reseta as tarefas concluídas
+      const batch = writeBatch(firestore);
+      tasksData.forEach((task) => {
+        const taskRef = doc(firestore, "tasks", task.id);
+        batch.update(taskRef, { completed: false, owner: "" });
+      });
+      await batch.commit();
+      fetchTasks();
+      alert("Novo dia iniciado. Histórico atualizado e tarefas resetadas.");
+    } catch (error) {
+      console.error("Erro ao iniciar novo dia:", error);
+      alert("Erro ao iniciar novo dia.");
+    }
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
-      <Typography variant="h4" align="center" sx={{ mb: 2 }}>
-        Bem-vindo(a) {effectiveOwner}
-      </Typography>
+      <Typography
+      variant="h4"
+      align="center"
+      sx={{ mb: 2, display: { xs: "none", sm: "block" } }}
+    >
+      Bem-vindo(a) {effectiveOwner}
+    </Typography>
+
       <Button
         variant="outlined"
         onClick={() => navigate("/user-selection")}
@@ -191,6 +243,13 @@ export default function Dashboard() {
       >
         Trocar Perfil
       </Button>
+
+      {/* Botão para iniciar novo dia */}
+      <Box display="flex" justifyContent="center" sx={{ mb: 4 }}>
+        <Button variant="contained" color="primary" onClick={handleStartNewDay}>
+          Iniciar Novo Dia
+        </Button>
+      </Box>
 
       {/* Área de Gráfico e Pré-visualização da Lista de Compras */}
       <Box
@@ -235,7 +294,7 @@ export default function Dashboard() {
           }}
           onClick={() => navigate("/lista-de-compras")}
         >
-          <Typography variant="subtitle1" sx={{ mb: 1 }} fontWeight={600}>
+          <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 600 }}>
             Lista de Compras
           </Typography>
           {shoppingList.length > 0 ? (
@@ -340,18 +399,6 @@ export default function Dashboard() {
           </Grid>
         </Box>
       ))}
-
-      {/* Botão global para resetar todas as tarefas */}
-      <Box display="flex" justifyContent="center" sx={{ mt: 4 }}>
-        <Button
-          variant="contained"
-          color="warning"
-          sx={{ fontSize: "0.9rem", padding: "6px 12px" }}
-          onClick={resetAllTasks}
-        >
-          Resetar Todas as Tarefas
-        </Button>
-      </Box>
     </Container>
   );
 }
