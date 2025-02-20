@@ -1,4 +1,3 @@
-// src/pages/Tasks.jsx
 import React, { useEffect, useState } from "react";
 import {
   Container,
@@ -20,8 +19,8 @@ import { getAuth, onAuthStateChanged } from "firebase/auth";
 export default function Tasks() {
   const [tasks, setTasks] = useState([]);
   const [description, setDescription] = useState("");
-  const [points, setPoints] = useState("");
   const [editId, setEditId] = useState(null);
+  const [searchTerm, setSearchTerm] = useState(""); // Estado para a busca
   const auth = getAuth();
 
   const fetchTasks = async () => {
@@ -80,8 +79,12 @@ export default function Tasks() {
   const handleEdit = (task) => {
     setEditId(task.id);
     setDescription(task.description);
-    setPoints(task.points);
   };
+
+  // Filtrar tarefas com base no termo de busca
+  const filteredTasks = tasks.filter((task) =>
+    task.description.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
     <Container maxWidth="md" sx={{ mt: 4 }}>
@@ -96,30 +99,44 @@ export default function Tasks() {
           onChange={(e) => setDescription(e.target.value)}
           required
         />
-        
         <Button variant="contained" type="submit">
           {editId ? "Atualizar Tarefa" : "Adicionar Tarefa"}
         </Button>
       </Box>
+
+      {/* Barra de busca */}
+      <TextField
+        label="Buscar tarefa..."
+        variant="outlined"
+        fullWidth
+        value={searchTerm}
+        onChange={(e) => setSearchTerm(e.target.value)}
+        sx={{ mb: 2 }}
+      />
+
       <Typography variant="h5" gutterBottom>
         Lista de Tarefas
       </Typography>
       <List>
-        {tasks.map((task) => (
-          <ListItem key={task.id} sx={{ display: "flex", justifyContent: "space-between" }}>
-            <ListItemText
-              primary={task.description}
-            />
-            <Box>
-              <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(task)}>
-                <EditIcon />
-              </IconButton>
-              <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(task.id)}>
-                <DeleteIcon />
-              </IconButton>
-            </Box>
-          </ListItem>
-        ))}
+        {filteredTasks.length > 0 ? (
+          filteredTasks.map((task) => (
+            <ListItem key={task.id} sx={{ display: "flex", justifyContent: "space-between" }}>
+              <ListItemText primary={task.description} />
+              <Box>
+                <IconButton edge="end" aria-label="edit" onClick={() => handleEdit(task)}>
+                  <EditIcon />
+                </IconButton>
+                <IconButton edge="end" aria-label="delete" onClick={() => handleDelete(task.id)}>
+                  <DeleteIcon />
+                </IconButton>
+              </Box>
+            </ListItem>
+          ))
+        ) : (
+          <Typography variant="body1" sx={{ textAlign: "center", mt: 2 }}>
+            Nenhuma tarefa encontrada.
+          </Typography>
+        )}
       </List>
     </Container>
   );
