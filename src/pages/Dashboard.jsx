@@ -1,5 +1,5 @@
 // src/pages/Dashboard.jsx
-import React, { useEffect, useState, useCallback, useContext } from "react";
+import React, { useEffect, useState, useCallback, useContext, useRef } from "react";
 import {
   Container,
   Grid,
@@ -26,21 +26,26 @@ import { firestore } from "../firebase/firebase-config";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import { ActiveSubUserContext } from "../context/ActiveSubUserContext";
+import TaskIcon from "@mui/icons-material/Assignment";
 
 export default function Dashboard() {
   const [tasks, setTasks] = useState([]);
   const [shoppingList, setShoppingList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  // Estado para controlar a visibilidade do dropdown de tarefas pendentes
+  const [pendingOpen, setPendingOpen] = useState(false);
   const { currentUser } = useAuth();
   const { activeSubUser } = useContext(ActiveSubUserContext);
   const navigate = useNavigate();
+  // Ref para o dropdown de tarefas pendentes
+  const pendingDropdownRef = useRef(null);
 
-  // Se activeSubUser existir e tiver propriedade name, usamos; caso contrário, "global"
+  // Define effectiveOwner: se houver subusuário, usa seu nome; caso contrário, "global"
   const effectiveOwner = activeSubUser?.name || "global";
   console.log("Subusuário ativo no Dashboard:", effectiveOwner);
 
-  // Função para buscar tarefas do Firestore filtradas pelo userId e ordenadas alfabeticamente
+  // Função para buscar as tarefas do usuário (ordenadas alfabeticamente)
   const fetchTasks = useCallback(async () => {
     if (!currentUser) {
       setLoading(false);
@@ -61,7 +66,7 @@ export default function Dashboard() {
     }
   }, [currentUser]);
 
-  // Função para buscar a lista de compras apenas para o usuário atual
+  // Função para buscar a lista de compras do usuário
   const fetchShoppingList = useCallback(async () => {
     if (!currentUser) return;
     try {
@@ -90,7 +95,27 @@ export default function Dashboard() {
     }
   }, [currentUser, fetchTasks, fetchShoppingList]);
 
-  // Filtra as tarefas com base no termo de busca
+  // Fecha o dropdown de tarefas pendentes ao clicar fora dele
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (
+        pendingDropdownRef.current &&
+        !pendingDropdownRef.current.contains(event.target)
+      ) {
+        setPendingOpen(false);
+      }
+    };
+    if (pendingOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    } else {
+      document.removeEventListener("mousedown", handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [pendingOpen]);
+
+  // Filtra as tarefas de acordo com o termo de busca
   const filteredTasks = tasks.filter((task) =>
     task.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
@@ -111,7 +136,7 @@ export default function Dashboard() {
       task.owner !== "global"
   );
 
-  // Agrupa as tarefas concluídas por subusuário (owner)
+  // Agrupa as tarefas concluídas por subusuário
   const tasksByOwner = concludedTasks.reduce((acc, task) => {
     const owner = task.owner;
     if (!acc[owner]) {
@@ -121,7 +146,7 @@ export default function Dashboard() {
     return acc;
   }, {});
 
-  // Dados para o gráfico de donut: cada objeto possui o nome do subusuário e a quantidade de tarefas concluídas
+  // Dados para o gráfico de donut
   const chartData = Object.keys(tasksByOwner).map((owner) => ({
     name: owner,
     value: tasksByOwner[owner].length,
@@ -129,7 +154,7 @@ export default function Dashboard() {
 
   const COLORS = ["primary", "#5B5B5B", "##636363", "#FF8042", "#A28DFF"];
 
-  // Função para concluir uma tarefa pendente usando o subusuário ativo
+  // Função para concluir uma tarefa pendente (usa o subusuário ativo)
   const completeTask = async (taskId) => {
     if (effectiveOwner === "global") {
       alert("Selecione um subusuário antes de concluir a tarefa.");
@@ -174,7 +199,7 @@ export default function Dashboard() {
     }
   };
 
-  // Função para iniciar um novo dia e salvar no histórico
+  // Função para iniciar um novo dia: salva histórico e reseta tarefas concluídas
   const handleStartNewDay = async () => {
     if (!currentUser) return;
     try {
@@ -189,23 +214,18 @@ export default function Dashboard() {
             task.owner !== "" &&
             task.owner !== "global"
         );
-
       const tasksByOwner = tasksData.reduce((acc, task) => {
         const owner = task.owner;
         if (!acc[owner]) acc[owner] = [];
         acc[owner].push(task.description);
         return acc;
       }, {});
-
-      // Salva o histórico apenas com o usuário logado
       await addDoc(collection(firestore, "history"), {
         userId: currentUser.uid,
         date: new Date(),
         tasksByOwner: tasksByOwner,
-        note: "", // Campo vazio para notas
+        note: "",
       });
-
-      // Reseta as tarefas concluídas
       const batch = writeBatch(firestore);
       tasksData.forEach((task) => {
         const taskRef = doc(firestore, "tasks", task.id);
@@ -220,16 +240,21 @@ export default function Dashboard() {
     }
   };
 
+  // Toggle para o dropdown de tarefas pendentes
+  const togglePendingDropdown = () => {
+    setPendingOpen((prev) => !prev);
+  };
+
   return (
     <Container maxWidth="lg" sx={{ mt: 4 }}>
+      {/* Cabeçalho (exibido apenas em desktop) */}
       <Typography
-      variant="h4"
-      align="center"
-      sx={{ mb: 2, display: { xs: "none", sm: "block" } }}
-    >
-      Bem-vindo(a) {effectiveOwner}
-    </Typography>
-
+        variant="h4"
+        align="center"
+        sx={{ mb: 2, display: { xs: "none", sm: "block" } }}
+      >
+        Bem-vindo(a) {effectiveOwner}
+      </Typography>
       <Button
         variant="outlined"
         onClick={() => navigate("/user-selection")}
@@ -243,8 +268,7 @@ export default function Dashboard() {
       >
         Trocar Perfil
       </Button>
-
-      {/* Botão para iniciar novo dia */}
+      {/* Botão para Iniciar Novo Dia */}
       <Box display="flex" justifyContent="center" sx={{ mb: 4 }}>
         <Button variant="contained" color="primary" onClick={handleStartNewDay}>
           Iniciar Novo Dia
@@ -309,66 +333,84 @@ export default function Dashboard() {
         </Box>
       </Box>
 
-      {/* Barra de Busca */}
-      <Box sx={{ mt: 4, mb: 2 }}>
-        <TextField
-          label="Buscar Tarefas"
-          variant="outlined"
-          fullWidth
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </Box>
+      {/* Conteúdo principal: Tarefas Pendentes (não exibidas inicialmente) */}
 
-      {/* Seção de Tarefas Pendentes */}
-      <Box sx={{ mt: 2 }}>
-        <Typography variant="h6" align="center" sx={{ mb: 2, color: "red" }}>
-          Tarefas Pendentes
-        </Typography>
-        {loading ? (
-          <Grid container justifyContent="center">
+      {/* Botão fixo para abrir o dropdown de tarefas pendentes */}
+      <Button
+        variant="contained"
+        color="primary"
+        onClick={togglePendingDropdown}
+        sx={{
+          position: "fixed",
+          bottom: 16,
+          right: 16,
+          borderRadius: "50%",
+          width: 56,
+          height: 56,
+          minWidth: 0,
+          zIndex: 1300,
+        }}
+      >
+        <TaskIcon sx={{ fontSize: 28 }} />
+      </Button>
+
+      {/* Dropdown de tarefas pendentes */}
+      {pendingOpen && (
+        <Box
+          ref={pendingDropdownRef}
+          sx={{
+            position: "fixed",
+            bottom: 80,
+            right: 16,
+            width: { xs: "90%", sm: "300px" },
+            maxHeight: "50vh",
+            bgcolor: "background.paper",
+            boxShadow: 3,
+            borderRadius: 2,
+            p: 2,
+            overflowY: "auto",
+            zIndex: 1300,
+          }}
+        >
+          <TextField
+            label="Buscar Tarefas"
+            variant="outlined"
+            fullWidth
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            sx={{ mb: 2 }}
+          />
+          {loading ? (
             <CircularProgress />
-          </Grid>
-        ) : pendingTasks.length ? (
-          <Grid container spacing={2}>
-            {pendingTasks.map((task) => (
-              <Grid item xs={12} sm={6} md={4} key={task.id}>
-                <Card>
-                  <CardContent>
-                    <Typography variant="h6">{task.description}</Typography>
-                    <Typography variant="body2" color="red">
-                      Pendente
-                    </Typography>
-                    <Box mt={1}>
-                      <Button
-                        variant="contained"
-                        color="primary"
-                        sx={{ fontSize: "0.8rem", padding: "4px 8px" }}
-                        onClick={() => completeTask(task.id)}
-                      >
-                        Concluir
-                      </Button>
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            ))}
-          </Grid>
-        ) : (
-          <Typography align="center">
-            Nenhuma tarefa pendente encontrada.
-          </Typography>
-        )}
-      </Box>
+          ) : pendingTasks.length > 0 ? (
+            pendingTasks.map((task) => (
+              <Box
+                key={task.id}
+                sx={{ mb: 1, display: "flex", justifyContent: "space-between" }}
+              >
+                <Typography variant="body1">{task.description}</Typography>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="small"
+                  onClick={() => completeTask(task.id)}
+                >
+                  Concluir
+                </Button>
+              </Box>
+            ))
+          ) : (
+            <Typography variant="body2">
+              Nenhuma tarefa pendente encontrada.
+            </Typography>
+          )}
+        </Box>
+      )}
 
       {/* Seção de Tarefas Concluídas por Subusuário */}
       {Object.keys(tasksByOwner).map((ownerName) => (
         <Box key={ownerName} sx={{ mt: 4 }}>
-          <Typography
-            variant="h6"
-            align="center"
-            sx={{ mb: 2, color: "green" }}
-          >
+          <Typography variant="h6" align="center" sx={{ mb: 2, color: "white", backgroundColor: "rgb(16, 18, 24)", padding: 2, borderRadius: 4 }}>
             Tarefas Concluídas por {ownerName}
           </Typography>
           <Grid container spacing={2}>
@@ -376,22 +418,17 @@ export default function Dashboard() {
               .filter((task) => task.owner === ownerName)
               .map((task) => (
                 <Grid item xs={12} sm={6} md={4} key={task.id}>
-                  <Card>
+                  <Card sx={{ minWidth: 250, border: "1px solid #ccc", boxShadow: "none" }}>
                     <CardContent>
                       <Typography variant="h6">{task.description}</Typography>
-                      <Typography variant="body2" color="green">
-                        Concluída
-                      </Typography>
-                      <Box mt={1}>
-                        <Button
-                          variant="outlined"
-                          color="secondary"
-                          sx={{ fontSize: "0.8rem", padding: "4px 8px" }}
-                          onClick={() => resetTask(task.id)}
-                        >
-                          Resetar
-                        </Button>
-                      </Box>
+                      <Button
+                        variant="outlined"
+                        color="secondary"
+                        sx={{ fontSize: "0.8rem", padding: "4px 8px" }}
+                        onClick={() => resetTask(task.id)}
+                      >
+                        Resetar
+                      </Button>
                     </CardContent>
                   </Card>
                 </Grid>
